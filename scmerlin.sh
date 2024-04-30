@@ -11,7 +11,7 @@
 ##       https://github.com/jackyaz/scMerlin        ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2024-Apr-29
+# Last Modified: 2024-Apr-30
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -1155,9 +1155,9 @@ PressEnter(){
 	return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Apr-28] ##
-##-------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2024-Apr-29] ##
+##----------------------------------------------##
 Get_JFFS_Usage()
 {
    if [ -z "$(mount | grep '/jffs')" ]
@@ -1168,7 +1168,7 @@ Get_JFFS_Usage()
    local jffsInfoStr  total  usedx  freex
    printf "\n${GRNct}${BOLDUNDERLN}JFFS${CLEARFORMAT}\n"
    df -kT | grep -E '^Filesystem[[:blank:]]+'
-   jffsInfoStr="$(df -kT | grep -E '[[:blank:]]+/jffs$')"
+   jffsInfoStr="$(df -kT /jffs | grep -E '^/dev/.*[[:blank:]]+/jffs$')"
    echo "$jffsInfoStr"
    total="$(echo "$jffsInfoStr" | awk -F ' ' '{print $3}')"
    usedx="$(echo "$jffsInfoStr" | awk -F ' ' '{print $4}')"
