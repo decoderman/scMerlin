@@ -11,7 +11,7 @@
 ##       https://github.com/jackyaz/scMerlin        ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2024-Apr-30
+# Last Modified: 2024-Jun-01
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -26,8 +26,8 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.3"
-readonly SCRIPT_VERSION="v2.5.3"
+readonly SCM_VERSION="v2.5.4"
+readonly SCRIPT_VERSION="v2.5.4"
 SCRIPT_BRANCH="master"
 SCRIPT_REPO="https://raw.githubusercontent.com/decoderman/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -39,13 +39,18 @@ readonly SHARED_WEB_DIR="$SCRIPT_WEBPAGE_DIR/shared-jy"
 readonly NTP_WATCHDOG_FILE="$SCRIPT_DIR/.watchdogenabled"
 readonly TAIL_TAINTED_FILE="$SCRIPT_DIR/.tailtaintdnsenabled"
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Apr-28] ##
-##-------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2024-May-25] ##
+##----------------------------------------------##
 readonly NTP_READY_CHECK_KEYN="NTP_Ready_Check"
 readonly NTP_READY_CHECK_FILE="NTP_Ready_Config"
 readonly NTP_READY_CHECK_CONF="$SCRIPT_DIR/$NTP_READY_CHECK_FILE"
 isInteractiveMenuMode=false
+
+if [ -z "$(which crontab)" ]
+then cronListCmd="cru l"
+else cronListCmd="crontab -l"
+fi
 
 [ -z "$(nvram get odmpid)" ] && ROUTER_MODEL=$(nvram get productid) || ROUTER_MODEL=$(nvram get odmpid)
 ### End of script variables ###
@@ -70,36 +75,70 @@ readonly BOLDUNDERLN="\033[1;4m"
 
 ### End of output format variables ###
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Jun-09] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-01] ##
+##----------------------------------------##
 readonly BEGIN_InsertTag="/\*\*BEGIN:scMerlin\*\*/"
 readonly ENDIN_InsertTag="/\*\*END:scMerlin\*\*/"
 readonly SUPPORTstr="$(nvram get rc_support)"
 
+Band_24G_Support=false
+Band_5G_1_Support=false
+Band_5G_2_support=false
+Band_6G_1_Support=false
+Band_6G_2_Support=false
+
 if echo "$SUPPORTstr" | grep -qw '2.4G'
-then Band_24G_Support=true
-else Band_24G_Support=false
-fi
+then Band_24G_Support=true ; fi
 
 if echo "$SUPPORTstr" | grep -qw '5G'
-then Band_5G_1_Support=true
-else Band_5G_1_Support=false
-fi
+then Band_5G_1_Support=true ; fi
 
-if echo "$SUPPORTstr" | grep -qw '5G-2'
-then Band_5G_2_support=true
-else Band_5G_2_support=false
-fi
+if echo "$SUPPORTstr" | grep -qwE 'wifi6e|wifi7'
+then Band_6G_1_Support=true ; fi
 
-if echo "$SUPPORTstr" | grep -qw 'wifi6e'
-then Band_6G_1_Support=true
-else Band_6G_1_Support=false
-fi
+##-------------------------------------##
+## Added by Martinski W. [2024-Jun-01] ##
+##-------------------------------------##
+_GetWiFiBandsSupported_()
+{
+   local wifiIFNameList  wifiIFName  wifiBandInfo  wifiBandName
+   local wifi5GHzCount=0  wifi6GHzCount=0
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Jun-03] ##
-##----------------------------------------------##
+   wifiIFNameList="$(nvram get wl_ifnames)"
+   if [ -z "$wifiIFNameList" ]
+   then
+       printf "\n**ERROR**: WiFi Interfaces are *NOT* found.\n"
+       exit 1
+   fi
+
+   for wifiIFName in $wifiIFNameList
+   do
+       wifiBandInfo="$(wl -i "$wifiIFName" status 2>/dev/null | grep 'Chanspec:')"
+       [ -z "$wifiBandInfo" ] && continue
+       wifiBandName="$(echo "$wifiBandInfo" | awk -F ' ' '{print $2}')"
+
+       case "$wifiBandName" in
+           2.4GHz) Band_24G_Support=true ;;
+             5GHz) let wifi5GHzCount++
+                   [ "$wifi5GHzCount" -eq 1 ] && Band_5G_1_Support=true
+                   [ "$wifi5GHzCount" -eq 2 ] && Band_5G_2_support=true
+                   ;;
+             6GHz) let wifi6GHzCount++
+                   [ "$wifi6GHzCount" -eq 1 ] && Band_6G_1_Support=true
+                   [ "$wifi6GHzCount" -eq 2 ] && Band_6G_2_Support=true
+                   ;;
+                *) printf "WiFi Band=[$wifiBandName]\n" ;;
+       esac
+   done
+   echo
+}
+
+_GetWiFiBandsSupported_
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-01] ##
+##----------------------------------------##
 GetIFaceName()
 {
     if [ $# -eq 0 ] || [ -z "$1" ] ; then echo "" ; return 1 ; fi
@@ -109,7 +148,10 @@ GetIFaceName()
         "2.4GHz")
             if "$Band_24G_Support"
             then
-                if [ "$ROUTER_MODEL" = "GT-AXE16000" ]
+                if [ "$ROUTER_MODEL" = "GT-BE98" ] || \
+                   [ "$ROUTER_MODEL" = "GT-BE98_Pro" ] || \
+                   [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
+                   [ "$ROUTER_MODEL" = "GT-AXE16000" ]
                 then theIFnamePrefix="wl3"
                 else theIFnamePrefix="wl0"
                 fi
@@ -118,7 +160,10 @@ GetIFaceName()
         "5GHz_1")
             if "$Band_5G_1_Support"
             then
-                if [ "$ROUTER_MODEL" = "GT-AXE16000" ]
+                if [ "$ROUTER_MODEL" = "GT-BE98" ] || \
+                   [ "$ROUTER_MODEL" = "GT-BE98_Pro" ] || \
+                   [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
+                   [ "$ROUTER_MODEL" = "GT-AXE16000" ]
                 then theIFnamePrefix="wl0"
                 else theIFnamePrefix="wl1"
                 fi
@@ -127,14 +172,27 @@ GetIFaceName()
         "5GHz_2")
             if "$Band_5G_2_support"
             then
-                if [ "$ROUTER_MODEL" = "GT-AXE16000" ]
+                if [ "$ROUTER_MODEL" = "GT-BE98" ] || \
+                   [ "$ROUTER_MODEL" = "GT-AXE16000" ]
                 then theIFnamePrefix="wl1"
                 else theIFnamePrefix="wl2"
                 fi
             fi
             ;;
         "6GHz_1")
-            if [ "$ROUTER_MODEL" = "GT-AXE16000" ] || "$Band_6G_1_Support"
+            if "$Band_6G_1_Support"
+            then
+                if [ "$ROUTER_MODEL" = "GT-BE98_Pro" ] || \
+                   [ "$ROUTER_MODEL" = "GT-BE98_PRO" ]
+                then theIFnamePrefix="wl1"
+                else theIFnamePrefix="wl2"
+                fi
+            fi
+            ;;
+        "6GHz_2")
+            if [ "$ROUTER_MODEL" = "GT-BE98_Pro" ] || \
+               [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
+               "$Band_6G_2_Support"
             then theIFnamePrefix="wl2" ; fi
             ;;
     esac
@@ -850,6 +908,9 @@ EOF
 	Print_Output true "Mounted $SCRIPT_NAME WebUI page as $realpage" "$PASS"
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-25] ##
+##----------------------------------------##
 Get_Cron_Jobs()
 {
 	printf "%-27s┌────────── minute (0 - 59)\\n" " "
@@ -861,8 +922,9 @@ Get_Cron_Jobs()
 	printf "%-27s↓%-8s↓%-8s↓%-8s↓%-8s↓\\n" " " " " " " " " " "
 	printf "${GRNct}%-25s %-8s %-8s %-8s %-8s %-9s %s${CLEARFORMAT}\n" \
 	"Cron job name" "Min" "Hour" "DayM" "Month" "DayW" "Command"
-	cru l | sed 's/,/|/g' | awk 'FS="#" {printf "%s %s\n",$2,$1}' | awk '{printf "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"",$1,$2,$3,$4,$5,$6;for(i=7; i<=NF; ++i) printf "%s ", $i; print "\""}' | sed 's/ "$/"/g' > /tmp/scmcronjobs.tmp
-	cronjobs="$(cru l | awk 'FS="#" {printf "%s %s\n",$2,$1}' | awk '{printf "%-25s %-8s %-8s %-8s %-8s %-10s",$1,$2,$3,$4,$5,$6;for(i=7; i<=NF; ++i) printf "%s ", $i; print ""}')"
+	eval $cronListCmd | sed 's/,/|/g' | awk 'FS="#" {printf "%s %s\n",$2,$1}' | \
+	awk '{printf "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"",$1,$2,$3,$4,$5,$6;for(i=7; i<=NF; ++i) printf "%s ", $i; print "\""}' | sed 's/ "$/"/g' > /tmp/scmcronjobs.tmp
+	cronjobs="$(eval $cronListCmd | awk 'FS="#" {printf "%s %s\n",$2,$1}' | awk '{printf "%-25s %-8s %-8s %-8s %-8s %-10s",$1,$2,$3,$4,$5,$6;for(i=7; i<=NF; ++i) printf "%s ", $i; print ""}')"
 	echo "$cronjobs"
 }
 
@@ -1156,23 +1218,26 @@ PressEnter(){
 }
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2024-Apr-29] ##
+## Added/Modified by Martinski W. [2024-May-25] ##
 ##----------------------------------------------##
 Get_JFFS_Usage()
 {
-   if [ -z "$(mount | grep '/jffs')" ]
-   then
-       printf "JFFS is NOT found mounted." ; return 1
-   fi
    _GetNum_() { printf "%.2f" "$(echo "$1" | awk "{print $1}")" ; }
-   local jffsInfoStr  total  usedx  freex
+   local jffsMountStr  jffsUsageStr  total  usedx  freex
    printf "\n${GRNct}${BOLDUNDERLN}JFFS${CLEARFORMAT}\n"
    df -kT | grep -E '^Filesystem[[:blank:]]+'
-   jffsInfoStr="$(df -kT /jffs | grep -E '^/dev/.*[[:blank:]]+/jffs$')"
-   echo "$jffsInfoStr"
-   total="$(echo "$jffsInfoStr" | awk -F ' ' '{print $3}')"
-   usedx="$(echo "$jffsInfoStr" | awk -F ' ' '{print $4}')"
-   freex="$(echo "$jffsInfoStr" | awk -F ' ' '{print $5}')"
+   jffsMountStr="$(mount | grep '/jffs')"
+   jffsUsageStr="$(df -kT /jffs | grep -E '.*[[:blank:]]+/jffs$')"
+   if [ -z "$jffsMountStr" ] || [ -z "$jffsUsageStr" ]
+   then
+       printf "\n${REDct}**ERROR**${CLEARct}\n"
+       printf "JFFS partition is NOT found mounted.\n"
+       return 1
+   fi
+   echo "$jffsUsageStr"
+   total="$(echo "$jffsUsageStr" | awk -F ' ' '{print $3}')"
+   usedx="$(echo "$jffsUsageStr" | awk -F ' ' '{print $4}')"
+   freex="$(echo "$jffsUsageStr" | awk -F ' ' '{print $5}')"
    echo
    printf "JFFS Used:  %6d KB = %5.2f MB [%4.1f%%]\n" \
           "$usedx" "$(_GetNum_ "($usedx / 1024)")" "$(_GetNum_ "($usedx * 100 / $total)")"
@@ -1180,23 +1245,35 @@ Get_JFFS_Usage()
           "$freex" "$(_GetNum_ "($freex / 1024)")" "$(_GetNum_ "($freex * 100 / $total)")"
    printf "JFFS Total: %6d KB = %5.2f MB\n" \
           "$total" "$(_GetNum_ "($total / 1024)")"
+
+   if echo "$jffsMountStr" | grep -qE "[[:blank:]]+[(]?ro[[:blank:],]"
+   then
+       printf "\n${GRNct}${BOLDUNDERLN}Mount Point:${CLEARct}\n"
+       echo "${jffsMountStr}"
+       printf "\n${REDct}**${YLWct}WARNING${REDct}**${CLEARct}\n"
+       printf "JFFS partition appears to be READ-ONLY.\n"
+   fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Apr-28] ##
-##-------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2024-May-25] ##
+##----------------------------------------------##
 Get_NVRAM_Usage()
 {
    _GetNum_() { printf "%.2f" "$(echo "$1" | awk "{print $1}")" ; }
-   local tempFile  nvramInfoStr  total  usedx  freex
+   local tempFile  nvramUsageStr  total  usedx  freex
    printf "\n${GRNct}${BOLDUNDERLN}NVRAM${CLEARFORMAT}\n"
-   tempFile="${HOME}/nvramShow.txt"
+   tempFile="${HOME}/nvramUsage.txt"
    nvram show 1>/dev/null 2>"$tempFile"
-   nvramInfoStr="$(cat "$tempFile")"
+   nvramUsageStr="$(cat "$tempFile" | grep -i "^size:")"
    rm -f "$tempFile"
-   echo "$nvramInfoStr"
-   usedx="$(echo "$nvramInfoStr" | awk -F ' ' '{print $2}')"
-   freex="$(echo "$nvramInfoStr" | awk -F ' ' '{print $4}')"
+   if [ -z "$nvramUsageStr" ]
+   then
+       printf "NVRAM size info is NOT found.\n" ; return 1
+   fi
+   echo "$nvramUsageStr"
+   usedx="$(echo "$nvramUsageStr" | awk -F ' ' '{print $2}')"
+   freex="$(echo "$nvramUsageStr" | awk -F ' ' '{print $4}')"
    freex="$(echo "$freex" | sed 's/[()]//g')"
    total="$((usedx + freex))"
    echo
@@ -1589,18 +1666,20 @@ MainMenu()
 			;;
 			t)
 				ScriptHeader
-				printf "\\n${BOLD}Temperatures${CLEARFORMAT}\\n\\n"
-				if [ -f /sys/class/thermal/thermal_zone0/temp ]; then
-					printf "CPU:\t %s°C\\n" "$(awk '{ print int($1/1000) }' /sys/class/thermal/thermal_zone0/temp)"
-				elif [ -f /proc/dmu/temperature ]; then
-					printf "CPU:\t %s\\n" "$(cut -f2 -d':' /proc/dmu/temperature | awk '{$1=$1;print}' | sed 's/..$/°C/')"
+				printf "\n${GRNct}${BOLDUNDERLN}Temperatures${CLEARFORMAT}\n\n"
+				if [ -f /sys/class/thermal/thermal_zone0/temp ]
+				then
+					printf "CPU:\t %s°C\n" "$(awk '{print int($1/1000)}' /sys/class/thermal/thermal_zone0/temp)"
+				elif [ -f /proc/dmu/temperature ]
+				then
+					printf "CPU:\t %s\n" "$(cut -f2 -d':' /proc/dmu/temperature | awk '{$1=$1;print}' | sed 's/..$/°C/')"
 				else
-					printf "CPU:\t [N/A]\\n"
+					printf "CPU:\t [N/A]\n"
 				fi
 
-				##----------------------------------------------##
-				## Added/Modified by Martinski W. [2023-Jun-03] ##
-				##----------------------------------------------##
+				##----------------------------------------##
+				## Modified by Martinski W. [2024-Jun-01] ##
+				##----------------------------------------##
 				theTemptrVal="$(GetTemperatureValue "2.4GHz")"
 				if [ -n "$theTemptrVal" ] ; then printf "2.4 GHz: %s°C\n" "$theTemptrVal" ; fi
 
@@ -1622,7 +1701,15 @@ MainMenu()
 					theTemptrVal="$(GetTemperatureValue "5GHz_1")"
 					if [ -n "$theTemptrVal" ] ; then printf "5 GHz:   %s°C\n" "$theTemptrVal" ; fi
 				fi
-				if "$Band_6G_1_Support"
+
+				if "$Band_6G_2_Support"
+				then
+					theTemptrVal="$(GetTemperatureValue "6GHz_1")"
+					if [ -n "$theTemptrVal" ] ; then printf "6 GHz-1: %s°C\n" "$theTemptrVal" ; fi
+
+					theTemptrVal="$(GetTemperatureValue "6GHz_2")"
+					if [ -n "$theTemptrVal" ] ; then printf "6 GHz-2: %s°C\n" "$theTemptrVal" ; fi
+				elif "$Band_6G_1_Support"
 				then
 					theTemptrVal="$(GetTemperatureValue "6GHz_1")"
 					if [ -n "$theTemptrVal" ] ; then printf "6 GHz:   %s°C\n" "$theTemptrVal" ; fi
