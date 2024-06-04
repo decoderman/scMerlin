@@ -11,7 +11,7 @@
 ##       https://github.com/jackyaz/scMerlin        ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2024-Jun-01
+# Last Modified: 2024-Jun-03
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -76,7 +76,7 @@ readonly BOLDUNDERLN="\033[1;4m"
 ### End of output format variables ###
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-01] ##
+## Modified by Martinski W. [2024-Jun-03] ##
 ##----------------------------------------##
 readonly BEGIN_InsertTag="/\*\*BEGIN:scMerlin\*\*/"
 readonly ENDIN_InsertTag="/\*\*END:scMerlin\*\*/"
@@ -94,7 +94,7 @@ then Band_24G_Support=true ; fi
 if echo "$SUPPORTstr" | grep -qw '5G'
 then Band_5G_1_Support=true ; fi
 
-if echo "$SUPPORTstr" | grep -qwE 'wifi6e|wifi7'
+if echo "$SUPPORTstr" | grep -qw 'wifi6e'
 then Band_6G_1_Support=true ; fi
 
 ##-------------------------------------##
