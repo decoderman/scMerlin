@@ -11,7 +11,7 @@
 ##       https://github.com/jackyaz/scMerlin        ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2024-Jun-03
+# Last Modified: 2024-Jun-04
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -98,7 +98,7 @@ if echo "$SUPPORTstr" | grep -qw 'wifi6e'
 then Band_6G_1_Support=true ; fi
 
 ##-------------------------------------##
-## Added by Martinski W. [2024-Jun-01] ##
+## Added by Martinski W. [2024-Jun-04] ##
 ##-------------------------------------##
 _GetWiFiBandsSupported_()
 {
@@ -108,18 +108,23 @@ _GetWiFiBandsSupported_()
    wifiIFNameList="$(nvram get wl_ifnames)"
    if [ -z "$wifiIFNameList" ]
    then
-       printf "\n**ERROR**: WiFi Interfaces are *NOT* found.\n"
-       exit 1
+       printf "\n**ERROR**: WiFi Interface List is *NOT* found.\n"
+       return 1
    fi
 
    for wifiIFName in $wifiIFNameList
    do
        wifiBandInfo="$(wl -i "$wifiIFName" status 2>/dev/null | grep 'Chanspec:')"
-       [ -z "$wifiBandInfo" ] && continue
+       if [ -z "$wifiBandInfo" ]
+       then
+           printf "\n**ERROR**: Could not find 'Chanspec' for WiFi Interface [$wifiIFName].\n"
+           continue
+       fi
        wifiBandName="$(echo "$wifiBandInfo" | awk -F ' ' '{print $2}')"
 
        case "$wifiBandName" in
-           2.4GHz) Band_24G_Support=true ;;
+           2.4GHz) Band_24G_Support=true
+                   ;;
              5GHz) let wifi5GHzCount++
                    [ "$wifi5GHzCount" -eq 1 ] && Band_5G_1_Support=true
                    [ "$wifi5GHzCount" -eq 2 ] && Band_5G_2_support=true
@@ -128,10 +133,10 @@ _GetWiFiBandsSupported_()
                    [ "$wifi6GHzCount" -eq 1 ] && Band_6G_1_Support=true
                    [ "$wifi6GHzCount" -eq 2 ] && Band_6G_2_Support=true
                    ;;
-                *) printf "WiFi Band=[$wifiBandName]\n" ;;
+                *) printf "\nWiFi Interface=[$wifiIFName], WiFi Band=[$wifiBandName]\n"
+                   ;;
        esac
    done
-   echo
 }
 
 _GetWiFiBandsSupported_
