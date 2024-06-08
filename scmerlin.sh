@@ -11,7 +11,7 @@
 ##       https://github.com/jackyaz/scMerlin        ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2024-Jun-04
+# Last Modified: 2024-Jun-07
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -39,9 +39,9 @@ readonly SHARED_WEB_DIR="$SCRIPT_WEBPAGE_DIR/shared-jy"
 readonly NTP_WATCHDOG_FILE="$SCRIPT_DIR/.watchdogenabled"
 readonly TAIL_TAINTED_FILE="$SCRIPT_DIR/.tailtaintdnsenabled"
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2024-May-25] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-07] ##
+##----------------------------------------##
 readonly NTP_READY_CHECK_KEYN="NTP_Ready_Check"
 readonly NTP_READY_CHECK_FILE="NTP_Ready_Config"
 readonly NTP_READY_CHECK_CONF="$SCRIPT_DIR/$NTP_READY_CHECK_FILE"
@@ -52,7 +52,8 @@ then cronListCmd="cru l"
 else cronListCmd="crontab -l"
 fi
 
-[ -z "$(nvram get odmpid)" ] && ROUTER_MODEL=$(nvram get productid) || ROUTER_MODEL=$(nvram get odmpid)
+[ -z "$(nvram get odmpid)" ] && ROUTER_MODEL="$(nvram get productid)" || ROUTER_MODEL="$(nvram get odmpid)"
+ROUTER_MODEL="$(echo "$ROUTER_MODEL" | tr 'a-z' 'A-Z')"
 ### End of script variables ###
 
 ### Start of output format variables ###
@@ -142,7 +143,7 @@ _GetWiFiBandsSupported_()
 _GetWiFiBandsSupported_
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-01] ##
+## Modified by Martinski W. [2024-Jun-07] ##
 ##----------------------------------------##
 GetIFaceName()
 {
@@ -154,7 +155,6 @@ GetIFaceName()
             if "$Band_24G_Support"
             then
                 if [ "$ROUTER_MODEL" = "GT-BE98" ] || \
-                   [ "$ROUTER_MODEL" = "GT-BE98_Pro" ] || \
                    [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
                    [ "$ROUTER_MODEL" = "GT-AXE16000" ]
                 then theIFnamePrefix="wl3"
@@ -166,7 +166,6 @@ GetIFaceName()
             if "$Band_5G_1_Support"
             then
                 if [ "$ROUTER_MODEL" = "GT-BE98" ] || \
-                   [ "$ROUTER_MODEL" = "GT-BE98_Pro" ] || \
                    [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
                    [ "$ROUTER_MODEL" = "GT-AXE16000" ]
                 then theIFnamePrefix="wl0"
@@ -187,17 +186,15 @@ GetIFaceName()
         "6GHz_1")
             if "$Band_6G_1_Support"
             then
-                if [ "$ROUTER_MODEL" = "GT-BE98_Pro" ] || \
-                   [ "$ROUTER_MODEL" = "GT-BE98_PRO" ]
+                if [ "$ROUTER_MODEL" = "GT-BE98_PRO" ]
                 then theIFnamePrefix="wl1"
                 else theIFnamePrefix="wl2"
                 fi
             fi
             ;;
         "6GHz_2")
-            if [ "$ROUTER_MODEL" = "GT-BE98_Pro" ] || \
-               [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
-               "$Band_6G_2_Support"
+            if "$Band_6G_2_Support" || \
+               [ "$ROUTER_MODEL" = "GT-BE98_PRO" ]
             then theIFnamePrefix="wl2" ; fi
             ;;
     esac
