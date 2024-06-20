@@ -17,6 +17,7 @@ p{font-weight:bolder}thead.collapsible-jquery{color:#fff;padding:0;width:100%;bo
 <script language="JavaScript" type="text/javascript" src="/ext/shared-jy/moment.js"></script>
 <script language="JavaScript" type="text/javascript" src="/ext/shared-jy/chart.js"></script>
 <script language="JavaScript" type="text/javascript" src="/ext/shared-jy/hammerjs.js"></script>
+<script language="JavaScript" type="text/javascript" src="/js/httpApi.js"></script>
 <script language="JavaScript" type="text/javascript" src="/state.js"></script>
 <script language="JavaScript" type="text/javascript" src="/general.js"></script>
 <script language="JavaScript" type="text/javascript" src="/popup.js"></script>
