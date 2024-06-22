@@ -17,6 +17,7 @@ p{font-weight:bolder}thead.collapsible-jquery{color:#fff;padding:0;width:100%;bo
 <script language="JavaScript" type="text/javascript" src="/ext/shared-jy/moment.js"></script>
 <script language="JavaScript" type="text/javascript" src="/ext/shared-jy/chart.js"></script>
 <script language="JavaScript" type="text/javascript" src="/ext/shared-jy/hammerjs.js"></script>
+<script language="JavaScript" type="text/javascript" src="/js/httpApi.js"></script>
 <script language="JavaScript" type="text/javascript" src="/state.js"></script>
 <script language="JavaScript" type="text/javascript" src="/general.js"></script>
 <script language="JavaScript" type="text/javascript" src="/popup.js"></script>
@@ -141,12 +142,14 @@ function show_memcpu(){
 	}
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2023-Jun-02] **/
-/**-------------------------------------**/
+/**----------------------------------------**/
+/** Modified by Martinski W. [2024-Jun-01] **/
+/**----------------------------------------**/
 let band_5GHz_1_supported=false,
     band_5GHz_2_supported=false,
-    band_6GHz_1_supported=false;
+    band_6GHz_1_supported=false,
+    band_6GHz_2_supported=false;
+let band_24GHz_supported = band2g_support;
 
 if (typeof wl_info == 'undefined' || wl_info == null)
 {
@@ -158,12 +161,15 @@ else
 {
     band_5GHz_1_supported = wl_info.band5g_support;
     band_5GHz_2_supported = wl_info.band5g_2_support;
-    band_6GHz_1_supported = wl_info.band6g_support;
+    if (typeof wl_info.band6g_support != 'undefined')
+    { band_6GHz_1_supported = wl_info.band6g_support; }
+    if (typeof wl_info.band6g_2_support != 'undefined')
+    { band_6GHz_2_supported = wl_info.band6g_2_support; }
 }
 
-/**----------------------------------------------**/
-/** Added/Modified by Martinski W. [2023-Jul-05] **/
-/**----------------------------------------------**/
+/**----------------------------------------**/
+/** Modified by Martinski W. [2024-Jun-01] **/
+/**----------------------------------------**/
 function GetTemperatureValue (bandIDstr)
 {
     let temperatureVal="[N/A]";
@@ -171,7 +177,9 @@ function GetTemperatureValue (bandIDstr)
     switch (bandIDstr)
     {
         case '2.4GHz':
-            if (productid == 'GT-AXE16000')
+            if (productid == 'GT-BE98' ||
+                productid == 'GT-BE98_PRO' ||
+                productid == 'GT-AXE16000')
             {
                 if (typeof curr_coreTmp_wl3_raw != 'undefined' && curr_coreTmp_wl3_raw != null)
                 { temperatureVal = curr_coreTmp_wl3_raw; }
@@ -187,7 +195,9 @@ function GetTemperatureValue (bandIDstr)
             break;
 
         case '5GHz_1':
-            if (productid == 'GT-AXE16000')
+            if (productid == 'GT-BE98' ||
+                productid == 'GT-BE98_PRO' ||
+                productid == 'GT-AXE16000')
             {
                 if (typeof curr_coreTmp_wl0_raw != 'undefined' && curr_coreTmp_wl0_raw != null)
                 { temperatureVal = curr_coreTmp_wl0_raw; }
@@ -203,7 +213,8 @@ function GetTemperatureValue (bandIDstr)
             break;
 
         case '5GHz_2':
-            if (productid == 'GT-AXE16000')
+            if (productid == 'GT-BE98' ||
+                productid == 'GT-AXE16000')
             {
                 if (typeof curr_coreTmp_wl1_raw != 'undefined' && curr_coreTmp_wl1_raw != null)
                 { temperatureVal = curr_coreTmp_wl1_raw; }
@@ -220,22 +231,36 @@ function GetTemperatureValue (bandIDstr)
             break;
 
         case '6GHz_1':
-            if (typeof curr_coreTmp_wl2_raw != 'undefined' && curr_coreTmp_wl2_raw != null)
+            if (productid == 'GT-BE98_PRO')
+            {
+                if (typeof curr_coreTmp_wl1_raw != 'undefined' && curr_coreTmp_wl1_raw != null)
+                { temperatureVal = curr_coreTmp_wl1_raw; }
+                else if (typeof curr_coreTmp_1_raw != 'undefined' && curr_coreTmp_1_raw != null)
+                { temperatureVal = curr_coreTmp_1_raw; }
+            }
+            else if (typeof curr_coreTmp_wl2_raw != 'undefined' && curr_coreTmp_wl2_raw != null)
             { temperatureVal = curr_coreTmp_wl2_raw; }
             else if (typeof curr_coreTmp_0_raw != 'undefined' && curr_coreTmp_0_raw != null &&
                      typeof curr_coreTmp_2_raw != 'undefined' && curr_coreTmp_2_raw != null)
             { temperatureVal = curr_coreTmp_2_raw; }
-            else if (typeof curr_coreTmp_52_raw != 'undefined' && curr_coreTmp_52_raw != null)
-            { temperatureVal = curr_coreTmp_52_raw; }
+            break;
+
+        case '6GHz_2':
+            if (productid == 'GT-BE98_PRO')
+            {
+                if (typeof curr_coreTmp_wl2_raw != 'undefined' && curr_coreTmp_wl2_raw != null)
+                { temperatureVal = curr_coreTmp_wl2_raw; }
+            }
             break;
     }
     return (temperatureVal);
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2023-Jun-05] **/
+/** Modified by Martinski W. [2024-Jun-01] **/
 /**----------------------------------------**/
-function update_temperatures(){
+function update_temperatures()
+{
 	$j.ajax({
 		url: '/ajax_coretmp.asp',
 		dataType: 'script',
@@ -255,7 +280,13 @@ function update_temperatures(){
 		{
 			code += '&nbsp;&nbsp;-&nbsp;&nbsp;<b>5 GHz: </b><span>' + GetTemperatureValue ('5GHz_1') + '</span>';
 		}
-		if (band_6GHz_1_supported)
+
+		if (band_6GHz_2_supported)
+		{   /** Wi-Fi 7 Quad-Band Routers **/
+			code += '&nbsp;&nbsp;-&nbsp;&nbsp;<b>6 GHz-1: </b><span>' + GetTemperatureValue ('6GHz_1') + '</span>';
+			code += '&nbsp;&nbsp;-&nbsp;&nbsp;<b>6 GHz-2: </b><span>' + GetTemperatureValue ('6GHz_2') + '</span>';
+		}
+		else if (band_6GHz_1_supported)
 		{   /** AXE-class Tri-Band or Quad-Band Routers **/
 			code += '&nbsp;&nbsp;-&nbsp;&nbsp;<b>6 GHz: </b><span>' + GetTemperatureValue ('6GHz_1') + '</span>';
 		}
@@ -266,7 +297,7 @@ function update_temperatures(){
 		else
 		{ CPUTemp = curr_cpuTemp; }
 		
-		if(CPUTemp != ''){
+		if (CPUTemp != ''){
 			code +='&nbsp;&nbsp;-&nbsp;&nbsp;<b>CPU: </b><span>' + parseInt(CPUTemp) +'&deg;C</span>';
 		}
 		document.getElementById('temp_td').innerHTML = code;
