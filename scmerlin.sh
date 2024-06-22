@@ -2126,8 +2126,6 @@ Available commands:
   $SCRIPT_NAME_LOWER startup force      runs startup actions such as mount WebUI tab
   $SCRIPT_NAME_LOWER install            installs script
   $SCRIPT_NAME_LOWER uninstall          uninstalls script
-  $SCRIPT_NAME_LOWER develop            switch to development branch
-  $SCRIPT_NAME_LOWER stable             switch to stable branch
 EOF
 	printf "\\n"
 }
@@ -2298,18 +2296,6 @@ case "$1" in
 	help)
 		ScriptHeader
 		Show_Help
-		exit 0
-	;;
-	develop)
-		SCRIPT_BRANCH="develop"
-		SCRIPT_REPO="https://raw.githubusercontent.com/decoderman/$SCRIPT_NAME/$SCRIPT_BRANCH"
-		Update_Version force
-		exit 0
-	;;
-	stable)
-		SCRIPT_BRANCH="master"
-		SCRIPT_REPO="https://raw.githubusercontent.com/decoderman/$SCRIPT_NAME/$SCRIPT_BRANCH"
-		Update_Version force
 		exit 0
 	;;
 	*)
