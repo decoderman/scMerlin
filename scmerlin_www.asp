@@ -169,7 +169,7 @@ else
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2024-Jun-01] **/
+/** Modified by Martinski W. [2024-Jun-24] **/
 /**----------------------------------------**/
 function GetTemperatureValue (bandIDstr)
 {
@@ -182,7 +182,7 @@ function GetTemperatureValue (bandIDstr)
                 productid == 'GT-BE98_PRO' ||
                 productid == 'GT-AXE16000')
             {
-                if (typeof curr_coreTmp_wl3_raw != 'undefined' && curr_coreTmp_wl3_raw != null)
+                if (typeof curr_coreTmp_wl3_raw != 'undefined')
                 { temperatureVal = curr_coreTmp_wl3_raw; }
                 else if (typeof curr_coreTmp_3_raw != 'undefined' && curr_coreTmp_3_raw != null)
                 { temperatureVal = curr_coreTmp_3_raw; }
@@ -200,7 +200,7 @@ function GetTemperatureValue (bandIDstr)
                 productid == 'GT-BE98_PRO' ||
                 productid == 'GT-AXE16000')
             {
-                if (typeof curr_coreTmp_wl0_raw != 'undefined' && curr_coreTmp_wl0_raw != null)
+                if (typeof curr_coreTmp_wl0_raw != 'undefined')
                 { temperatureVal = curr_coreTmp_wl0_raw; }
                 else if (typeof curr_coreTmp_0_raw != 'undefined' && curr_coreTmp_0_raw != null)
                 { temperatureVal = curr_coreTmp_0_raw; }
@@ -217,7 +217,7 @@ function GetTemperatureValue (bandIDstr)
             if (productid == 'GT-BE98' ||
                 productid == 'GT-AXE16000')
             {
-                if (typeof curr_coreTmp_wl1_raw != 'undefined' && curr_coreTmp_wl1_raw != null)
+                if (typeof curr_coreTmp_wl1_raw != 'undefined')
                 { temperatureVal = curr_coreTmp_wl1_raw; }
                 else if (typeof curr_coreTmp_1_raw != 'undefined' && curr_coreTmp_1_raw != null)
                 { temperatureVal = curr_coreTmp_1_raw; }
@@ -234,7 +234,7 @@ function GetTemperatureValue (bandIDstr)
         case '6GHz_1':
             if (productid == 'GT-BE98_PRO')
             {
-                if (typeof curr_coreTmp_wl1_raw != 'undefined' && curr_coreTmp_wl1_raw != null)
+                if (typeof curr_coreTmp_wl1_raw != 'undefined')
                 { temperatureVal = curr_coreTmp_wl1_raw; }
                 else if (typeof curr_coreTmp_1_raw != 'undefined' && curr_coreTmp_1_raw != null)
                 { temperatureVal = curr_coreTmp_1_raw; }
@@ -249,7 +249,7 @@ function GetTemperatureValue (bandIDstr)
         case '6GHz_2':
             if (productid == 'GT-BE98_PRO')
             {
-                if (typeof curr_coreTmp_wl2_raw != 'undefined' && curr_coreTmp_wl2_raw != null)
+                if (typeof curr_coreTmp_wl2_raw != 'undefined')
                 { temperatureVal = curr_coreTmp_wl2_raw; }
             }
             break;
