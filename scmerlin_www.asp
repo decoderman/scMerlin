@@ -29,6 +29,16 @@ p{font-weight:bolder}thead.collapsible-jquery{color:#fff;padding:0;width:100%;bo
 <script language="JavaScript" type="text/javascript" src="/client_function.js"></script>
 <script language="JavaScript" type="text/javascript" src="/validator.js"></script>
 <script>
+
+/**----------------------------------------**/
+/** Modified by Martinski W. [2024-Jun-25] **/
+/**----------------------------------------**/
+let DEBUGmsg='';
+let doOnceOnlyDEBUG=true;
+let doMaxCountDEBUG=0;
+const theMaxCountDEBUG=5;
+const doDEBUG=true;
+
 var custom_settings;
 function LoadCustomSettings(){
 	custom_settings = <% get_custom_settings(); %>;
@@ -175,6 +185,25 @@ function GetTemperatureValue (bandIDstr)
 {
     let temperatureVal="[N/A]";
 
+
+/**---------------------**/
+/** FOR TEST/DEBUG ONLY **/
+/**---------------------**/
+if (doDEBUG && doMaxCountDEBUG < theMaxCountDEBUG)
+{
+    if (doOnceOnlyDEBUG)
+    {
+        doOnceOnlyDEBUG=false;
+        DEBUGmsg=`ProductID: [${productid}]`;
+        console.log(DEBUGmsg);
+    }
+    DEBUGmsg=`WiFiBandID: [${bandIDstr}]`;
+    console.log(DEBUGmsg);
+    DEBUGmsg=`Temp_WL2_Var_Raw: [${curr_coreTmp_wl2_raw}]`;
+    console.log(DEBUGmsg);
+}
+
+
     switch (bandIDstr)
     {
         case '2.4GHz':
@@ -247,13 +276,71 @@ function GetTemperatureValue (bandIDstr)
             break;
 
         case '6GHz_2':
+
+/**---------------------**/
+/** FOR TEST/DEBUG ONLY **/
+/**---------------------**/
+if (doDEBUG && doMaxCountDEBUG < theMaxCountDEBUG)
+{
+    DEBUGmsg=`ProductID: [${productid}]`;
+    console.log(DEBUGmsg);
+}
+
+
             if (productid == 'GT-BE98_PRO')
             {
                 if (typeof curr_coreTmp_wl2_raw != 'undefined')
-                { temperatureVal = curr_coreTmp_wl2_raw; }
+                {
+                    temperatureVal = curr_coreTmp_wl2_raw;
+
+/**---------------------**/
+/** FOR TEST/DEBUG ONLY **/
+/**---------------------**/
+if (doDEBUG && doMaxCountDEBUG < theMaxCountDEBUG)
+{
+    DEBUGmsg=`Temp_WL2_Val: [${temperatureVal}]`;
+    console.log(DEBUGmsg);
+}
+
+                }
+
+/**---------------------**/
+/** FOR TEST/DEBUG ONLY **/
+/**---------------------**/
+                else
+                {
+                    temperatureVal="[N/A-1]??";
+
+if (doDEBUG && doMaxCountDEBUG < theMaxCountDEBUG)
+{
+    DEBUGmsg=`Temp_WL2_Raw: [${curr_coreTmp_wl2_raw}]`;
+    console.log(DEBUGmsg);
+}
+
+                }
+            }
+/**---------------------**/
+/** FOR TEST/DEBUG ONLY **/
+/**---------------------**/
+            else
+            {
+                temperatureVal="[N/A-2]??";
             }
             break;
     }
+
+
+/**---------------------**/
+/** FOR TEST/DEBUG ONLY **/
+/**---------------------**/
+if (doDEBUG && doMaxCountDEBUG < theMaxCountDEBUG)
+{
+   doMaxCountDEBUG += 1;
+   DEBUGmsg=`TempVal: [${temperatureVal}]`;
+   console.log(DEBUGmsg);
+}
+
+
     return (temperatureVal);
 }
 
