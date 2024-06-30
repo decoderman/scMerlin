@@ -11,7 +11,7 @@
 ##       https://github.com/jackyaz/scMerlin        ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2024-Jun-24
+# Last Modified: 2024-Jun-28
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -21,13 +21,14 @@
 # shellcheck disable=SC2059
 # shellcheck disable=SC2034
 # shellcheck disable=SC2155
+# shellcheck disable=SC3043
 ######################################################
 
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.5"
-readonly SCRIPT_VERSION="v2.5.5"
+readonly SCM_VERSION="v2.5.6"
+readonly SCRIPT_VERSION="v2.5.6"
 SCRIPT_BRANCH="master"
 SCRIPT_REPO="https://raw.githubusercontent.com/decoderman/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -1208,7 +1209,7 @@ Shortcut_Script(){
 
 PressEnter(){
 	while true; do
-		printf "Press enter to continue..."
+		printf "Press <Enter> to continue..."
 		read -r key
 		case "$key" in
 			*)
@@ -1220,12 +1221,12 @@ PressEnter(){
 }
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2024-May-25] ##
+## Added/Modified by Martinski W. [2024-Jun-28] ##
 ##----------------------------------------------##
 Get_JFFS_Usage()
 {
    _GetNum_() { printf "%.2f" "$(echo "$1" | awk "{print $1}")" ; }
-   local jffsMountStr  jffsUsageStr  total  usedx  freex
+   local jffsMountStr  jffsUsageStr  typex  total  usedx  freex  totalx
    printf "\n${GRNct}${BOLDUNDERLN}JFFS${CLEARFORMAT}\n"
    df -kT | grep -E '^Filesystem[[:blank:]]+'
    jffsMountStr="$(mount | grep '/jffs')"
@@ -1237,14 +1238,18 @@ Get_JFFS_Usage()
        return 1
    fi
    echo "$jffsUsageStr"
+   typex="$(echo "$jffsUsageStr" | awk -F ' ' '{print $2}')"
    total="$(echo "$jffsUsageStr" | awk -F ' ' '{print $3}')"
    usedx="$(echo "$jffsUsageStr" | awk -F ' ' '{print $4}')"
    freex="$(echo "$jffsUsageStr" | awk -F ' ' '{print $5}')"
+   totalx="$total"
+   if [ "$typex" = "ubifs" ] && [ "$((usedx + freex))" -ne "$total" ]
+   then totalx="$((usedx + freex))" ; fi
    echo
    printf "JFFS Used:  %6d KB = %5.2f MB [%4.1f%%]\n" \
-          "$usedx" "$(_GetNum_ "($usedx / 1024)")" "$(_GetNum_ "($usedx * 100 / $total)")"
+          "$usedx" "$(_GetNum_ "($usedx / 1024)")" "$(_GetNum_ "($usedx * 100 / $totalx)")"
    printf "JFFS Free:  %6d KB = %5.2f MB [%4.1f%%]\n" \
-          "$freex" "$(_GetNum_ "($freex / 1024)")" "$(_GetNum_ "($freex * 100 / $total)")"
+          "$freex" "$(_GetNum_ "($freex / 1024)")" "$(_GetNum_ "($freex * 100 / $totalx)")"
    printf "JFFS Total: %6d KB = %5.2f MB\n" \
           "$total" "$(_GetNum_ "($total / 1024)")"
 
@@ -1257,9 +1262,9 @@ Get_JFFS_Usage()
    fi
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2024-May-25] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-27] ##
+##----------------------------------------##
 Get_NVRAM_Usage()
 {
    _GetNum_() { printf "%.2f" "$(echo "$1" | awk "{print $1}")" ; }
@@ -1267,7 +1272,7 @@ Get_NVRAM_Usage()
    printf "\n${GRNct}${BOLDUNDERLN}NVRAM${CLEARFORMAT}\n"
    tempFile="${HOME}/nvramUsage.txt"
    nvram show 1>/dev/null 2>"$tempFile"
-   nvramUsageStr="$(cat "$tempFile" | grep -i "^size:")"
+   nvramUsageStr="$(grep -i "^size:" "$tempFile")"
    rm -f "$tempFile"
    if [ -z "$nvramUsageStr" ]
    then

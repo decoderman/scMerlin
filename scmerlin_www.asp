@@ -29,6 +29,11 @@ p{font-weight:bolder}thead.collapsible-jquery{color:#fff;padding:0;width:100%;bo
 <script language="JavaScript" type="text/javascript" src="/client_function.js"></script>
 <script language="JavaScript" type="text/javascript" src="/validator.js"></script>
 <script>
+
+/**----------------------------------------**/
+/** Modified by Martinski W. [2024-Jun-28] **/
+/**----------------------------------------**/
+
 var custom_settings;
 function LoadCustomSettings(){
 	custom_settings = <% get_custom_settings(); %>;
@@ -42,9 +47,15 @@ function LoadCustomSettings(){
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2024-Apr-21] **/
+/** Modified by Martinski W. [2024-Jun-27] **/
 /**----------------------------------------**/
-var nvramtotal = <% sysinfo("nvram.total"); %> / 1024;
+let theProductID = '<% nvram_get("productid"); %>';
+theProductID = theProductID.toUpperCase();
+
+let firmVerStr = '<% nvram_get("firmver"); %>';
+let firmVerNum = parseFloat(firmVerStr.replace(/\./g,""));
+
+let nvramtotal = <% sysinfo("nvram.total"); %> / 1024;
 let jffsTotalStr = "<% sysinfo("jffs.total"); %>";
 let jffs_Usage = '';
 let jffs_Used = 0.0, jffs_Total = 0.0, jffs_Free = 0.0;
@@ -169,7 +180,7 @@ else
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2024-Jun-24] **/
+/** Modified by Martinski W. [2024-Jun-28] **/
 /**----------------------------------------**/
 function GetTemperatureValue (bandIDstr)
 {
@@ -178,9 +189,9 @@ function GetTemperatureValue (bandIDstr)
     switch (bandIDstr)
     {
         case '2.4GHz':
-            if (productid == 'GT-BE98' ||
-                productid == 'GT-BE98_PRO' ||
-                productid == 'GT-AXE16000')
+            if (theProductID == 'GT-BE98' ||
+                theProductID == 'GT-BE98_PRO' ||
+                theProductID == 'GT-AXE16000')
             {
                 if (typeof curr_coreTmp_wl3_raw != 'undefined')
                 { temperatureVal = curr_coreTmp_wl3_raw; }
@@ -196,9 +207,9 @@ function GetTemperatureValue (bandIDstr)
             break;
 
         case '5GHz_1':
-            if (productid == 'GT-BE98' ||
-                productid == 'GT-BE98_PRO' ||
-                productid == 'GT-AXE16000')
+            if (theProductID == 'GT-BE98' ||
+                theProductID == 'GT-BE98_PRO' ||
+                theProductID == 'GT-AXE16000')
             {
                 if (typeof curr_coreTmp_wl0_raw != 'undefined')
                 { temperatureVal = curr_coreTmp_wl0_raw; }
@@ -214,8 +225,8 @@ function GetTemperatureValue (bandIDstr)
             break;
 
         case '5GHz_2':
-            if (productid == 'GT-BE98' ||
-                productid == 'GT-AXE16000')
+            if (theProductID == 'GT-BE98' ||
+                theProductID == 'GT-AXE16000')
             {
                 if (typeof curr_coreTmp_wl1_raw != 'undefined')
                 { temperatureVal = curr_coreTmp_wl1_raw; }
@@ -232,7 +243,7 @@ function GetTemperatureValue (bandIDstr)
             break;
 
         case '6GHz_1':
-            if (productid == 'GT-BE98_PRO')
+            if (theProductID == 'GT-BE98_PRO')
             {
                 if (typeof curr_coreTmp_wl1_raw != 'undefined')
                 { temperatureVal = curr_coreTmp_wl1_raw; }
@@ -247,7 +258,7 @@ function GetTemperatureValue (bandIDstr)
             break;
 
         case '6GHz_2':
-            if (productid == 'GT-BE98_PRO')
+            if (theProductID == 'GT-BE98_PRO')
             {
                 if (typeof curr_coreTmp_wl2_raw != 'undefined')
                 { temperatureVal = curr_coreTmp_wl2_raw; }
