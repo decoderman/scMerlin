@@ -11,9 +11,8 @@ Chart.Tooltip.positioners.cursor = function(chartElements,coordinates){
 	return coordinates;
 };
 
-var $j = jQuery.noConflict(); //avoid conflicts on John's fork (state.js)
-
-function SetCurrentPage(){
+function SetCurrentPage()
+{
 	document.form.next_page.value = window.location.pathname.substring(1);
 	document.form.current_page.value = window.location.pathname.substring(1);
 }
@@ -37,29 +36,29 @@ function initial()
 	Draw_Chart_NoData('jffsUsage','Data loading...');
 	Draw_Chart_NoData('MemoryUsage','Data loading...')
 	Draw_Chart_NoData('SwapUsage','No swap file configured');
-	
-	$j('#sortTableCron').empty();
-	$j('#sortTableCron').append(BuildSortTableHtmlNoData());
-	$j('#sortTableProcesses').empty();
-	$j('#sortTableProcesses').append(BuildSortTableHtmlNoData());
-	
+
+	$('#sortTableCron').empty();
+	$('#sortTableCron').append(BuildSortTableHtmlNoData());
+	$('#sortTableProcesses').empty();
+	$('#sortTableProcesses').append(BuildSortTableHtmlNoData());
+
 	var vpnserverstablehtml='';
 	for(var i = 1; i < 3; i++){
 		vpnserverstablehtml += BuildVPNServerTable(i);
 	}
-	$j('#table_config').after(vpnserverstablehtml);
+	$('#table_config').after(vpnserverstablehtml);
 	
 	var vpnclientstablehtml='';
 	for(var i = 1; i < 6; i++){
 		vpnclientstablehtml += BuildVPNClientTable(i);
 	}
-	$j('#table_config').after(vpnclientstablehtml);
+	$('#table_config').after(vpnclientstablehtml);
 	
 	var servicectablehtml='';
 	for(var i = 0; i < srvnamelist.length; i++){
 		servicectablehtml += BuildServiceTable(srvnamelist[i],srvdesclist[i],srvnamevisiblelist[i],i);
 	}
-	$j('#table_config').after(servicectablehtml);
+	$('#table_config').after(servicectablehtml);
 	
 	document.formScriptActions.action_script.value='start_scmerlingetaddonpages;start_scmerlingetcronjobs';
 	document.formScriptActions.submit();
@@ -78,10 +77,10 @@ function initial()
 function ScriptUpdateLayout(){
 	var localver = GetVersionNumber('local');
 	var serverver = GetVersionNumber('server');
-	$j('#scmerlin_version_local').text(localver);
+	$('#scmerlin_version_local').text(localver);
 	
 	if(localver != serverver && serverver != 'N/A'){
-		$j('#scmerlin_version_server').text('Updated version available: '+serverver);
+		$('#scmerlin_version_server').text('Updated version available: '+serverver);
 		showhide('btnChkUpdate',false);
 		showhide('scmerlin_version_server',true);
 		showhide('btnDoUpdate',true);
@@ -93,7 +92,7 @@ function reload(){
 }
 
 function update_status(){
-	$j.ajax({
+	$.ajax({
 		url: '/ext/scmerlin/detect_update.js',
 		dataType: 'script',
 		error: function(xhr){
@@ -107,12 +106,12 @@ function update_status(){
 				document.getElementById('imgChkUpdate').style.display = 'none';
 				showhide('scmerlin_version_server',true);
 				if(updatestatus != 'None'){
-					$j('#scmerlin_version_server').text('Updated version available: '+updatestatus);
+					$('#scmerlin_version_server').text('Updated version available: '+updatestatus);
 					showhide('btnChkUpdate',false);
 					showhide('btnDoUpdate',true);
 				}
 				else{
-					$j('#scmerlin_version_server').text('No update available');
+					$('#scmerlin_version_server').text('No update available');
 					showhide('btnChkUpdate',true);
 					showhide('btnDoUpdate',false);
 				}
@@ -132,7 +131,7 @@ function CheckUpdate(){
 function DoUpdate(){
 	document.form.action_script.value = 'start_scmerlindoupdate';
 	document.form.action_wait.value = 15;
-	$j('#auto_refresh').prop('checked',false);
+	$('#auto_refresh').prop('checked',false);
 	if (tmout != null) clearTimeout(tmout);
 	showLoading();
 	document.form.submit();
@@ -148,7 +147,7 @@ function RestartService(servicename){
 }
 
 function service_status(servicename){
-	$j.ajax({
+	$.ajax({
 		url: '/ext/scmerlin/detect_service.js',
 		dataType: 'script',
 		error: function(xhr){
@@ -285,18 +284,18 @@ function BuildSortTableHtml(type) {
 /**----------------------------------------**/
 function Get_NTPWatchdogEnabled_File()
 {
-	$j.ajax({
+	$.ajax({
 		url: '/ext/scmerlin/watchdogenabled.htm',
 		dataType: 'text',
 		error: function(xhr)
 		{
 			document.form.scMerlin_NTPwatchdog.value = 'Disable';
-			$j('#scMerlin_NTPwatchdog_Status').text('Currently: DISABLED');
+			$('#scMerlin_NTPwatchdog_Status').text('Currently: DISABLED');
 		},
 		success: function(data)
 		{
 			document.form.scMerlin_NTPwatchdog.value = 'Enable';
-			$j('#scMerlin_NTPwatchdog_Status').text('Currently: ENABLED');
+			$('#scMerlin_NTPwatchdog_Status').text('Currently: ENABLED');
 		}
 	});
 }
@@ -308,7 +307,7 @@ function Save_NTPWatchdog()
 {
 	document.form.action_script.value = 'start_scmerlin_NTPwatchdog' + document.form.scMerlin_NTPwatchdog.value;
 	document.form.action_wait.value = 4;
-	$j('#auto_refresh').prop('checked',false);
+	$('#auto_refresh').prop('checked',false);
 	if (tmout != null) clearTimeout(tmout);
 	showLoading();
 	document.form.submit();
@@ -320,18 +319,18 @@ function Save_NTPWatchdog()
 /**-------------------------------------**/
 function Get_DNSmasqWatchdogEnabled_File()
 {
-	$j.ajax({
+	$.ajax({
 		url: '/ext/scmerlin/tailtaintdnsenabled.htm',
 		dataType: 'text',
 		error: function(xhr)
 		{
 			document.form.scMerlin_DNSmasqWatchdog.value = 'Disable';
-			$j('#scMerlin_DNSmasqWatchdog_Status').text('Currently: DISABLED');
+			$('#scMerlin_DNSmasqWatchdog_Status').text('Currently: DISABLED');
 		},
 		success: function(data)
 		{
 			document.form.scMerlin_DNSmasqWatchdog.value = 'Enable';
-			$j('#scMerlin_DNSmasqWatchdog_Status').text('Currently: ENABLED');
+			$('#scMerlin_DNSmasqWatchdog_Status').text('Currently: ENABLED');
 		}
 	});
 }
@@ -343,7 +342,7 @@ function Save_DNSmasqWatchdog()
 {
 	document.form.action_script.value = 'start_scmerlin_DNSmasqWatchdog' + document.form.scMerlin_DNSmasqWatchdog.value;
 	document.form.action_wait.value = 4;
-	$j('#auto_refresh').prop('checked',false);
+	$('#auto_refresh').prop('checked',false);
 	if (tmout != null) clearTimeout(tmout);
 	showLoading();
 	document.form.submit();
@@ -516,7 +515,7 @@ function SetNTPReadyCheckButtonState (enableState, theWaitMsg)
 /**-------------------------------------**/
 function Get_NTPReadyCheck_Option()
 {
-	$j.ajax({
+	$.ajax({
 		url: '/ext/scmerlin/NTP_Ready_Config.htm',
 		dataType: 'text',
 		error: function(xhr)
@@ -525,7 +524,7 @@ function Get_NTPReadyCheck_Option()
 			NTPReadyCheck.prevOptionValue = 'DISABLED';
 			WaitMsgPopupBox.CloseMsg();
 			SetNTPReadyCheckButtonState (true, null);
-			$j('#scMerlin_NTPcheck_Status').text('Currently: DISABLED');
+			$('#scMerlin_NTPcheck_Status').text('Currently: DISABLED');
 		},
 		success: function(data)
 		{
@@ -568,7 +567,7 @@ function Get_NTPReadyCheck_Option()
 			        theMsg = NTPReadyCheck.disabledDoneMsg;
 			    }
 			}
-			$j('#scMerlin_NTPcheck_Status').text('Currently: ' + theCheckSetting);
+			$('#scMerlin_NTPcheck_Status').text('Currently: ' + theCheckSetting);
 			WaitMsgPopupBox.CloseMsg();
 			if (theMsg != '') { AlertMsgBox.ShowAlert (theMsg); }
 			SetNTPReadyCheckButtonState (true, null);
@@ -618,7 +617,7 @@ function Save_NTPReadyCheck_Option()
 }
 
 function load_addonpages(){
-	$j.ajax({
+	$.ajax({
 		url: '/ext/scmerlin/addonwebpages.htm',
 		dataType: 'text',
 		error: function(xhr){
@@ -649,7 +648,7 @@ function load_addonpages(){
 				addonpageshtml += BuildAddonPageTable(sortedAddonPages[i].NAME,sortedAddonPages[i].URL,i);
 			}
 			
-			$j('#table_config').after(addonpageshtml);
+			$('#table_config').after(addonpageshtml);
 			
 			AddEventHandlers();
 		}
@@ -657,7 +656,7 @@ function load_addonpages(){
 }
 
 function get_cronlist_file(){
-	$j.ajax({
+	$.ajax({
 		url: '/ext/scmerlin/scmcronjobs.htm',
 		dataType: 'text',
 		error: function(xhr){
@@ -696,7 +695,7 @@ function ParseCronJobs(data){
 }
 
 function get_proclist_file(){
-	$j.ajax({
+	$.ajax({
 		url: '/ext/scmerlin/top.htm',
 		dataType: 'text',
 		error: function(xhr){
@@ -756,14 +755,14 @@ function SetCookie(cookiename,cookievalue){
 }
 
 function AddEventHandlers(){
-	$j('.collapsible-jquery').off('click').on('click',function(){
-		$j(this).siblings().toggle('fast',function(){
-			if($j(this).css('display') == 'none'){
-				SetCookie($j(this).siblings()[0].id,'collapsed');
+	$('.collapsible-jquery').off('click').on('click',function(){
+		$(this).siblings().toggle('fast',function(){
+			if($(this).css('display') == 'none'){
+				SetCookie($(this).siblings()[0].id,'collapsed');
 			}
 			else{
-				SetCookie($j(this).siblings()[0].id,'expanded');
-				if($j(this).siblings()[0].id == 'routermemory'){
+				SetCookie($(this).siblings()[0].id,'expanded');
+				if($(this).siblings()[0].id == 'routermemory'){
 					Draw_Chart('MemoryUsage');
 					if(parseInt(mem_stats_arr[5]) != 0){
 						Draw_Chart('SwapUsage');
@@ -772,7 +771,7 @@ function AddEventHandlers(){
 						Draw_Chart_NoData('SwapUsage','No swap file configured');
 					}
 				}
-				else if($j(this).siblings()[0].id == 'routerstorage'){
+				else if($(this).siblings()[0].id == 'routerstorage'){
 					Draw_Chart('nvramUsage');
 					Draw_Chart('jffsUsage');
 				}
@@ -780,16 +779,16 @@ function AddEventHandlers(){
 		})
 	});
 	
-	$j('.collapsible-jquery').each(function(index,element){
-		if(GetCookie($j(this)[0].id,'string') == 'collapsed'){
-			$j(this).siblings().toggle(false);
+	$('.collapsible-jquery').each(function(index,element){
+		if(GetCookie($(this)[0].id,'string') == 'collapsed'){
+			$(this).siblings().toggle(false);
 		}
 		else{
-			$j(this).siblings().toggle(true);
+			$(this).siblings().toggle(true);
 		}
 	});
 	
-	$j('#auto_refresh').off('click').on('click',function(){ToggleRefresh();});
+	$('#auto_refresh').off('click').on('click',function(){ToggleRefresh();});
 }
 
 function SortTable(tableid,arrayid,sorttext,sortname,sortdir){
@@ -841,10 +840,10 @@ function SortTable(tableid,arrayid,sorttext,sortname,sortdir){
 		}
 	}
 	
-	$j('#'+tableid).empty();
-	$j('#'+tableid).append(BuildSortTableHtml(tableid));
+	$('#'+tableid).empty();
+	$('#'+tableid).append(BuildSortTableHtml(tableid));
 	
-	$j('#'+tableid).find('.sortable').each(function(index,element){
+	$('#'+tableid).find('.sortable').each(function(index,element){
 		if(element.innerHTML == window[sortname]){
 			if(window[sortdir] == 'asc'){
 				element.innerHTML = window[sortname]+' ↑';
@@ -893,7 +892,7 @@ function getNum(val){
 }
 
 function ToggleRefresh(){
-	if($j('#auto_refresh').prop('checked') == true){
+	if($('#auto_refresh').prop('checked') == true){
 		get_proclist_file();
 	}
 	else{
