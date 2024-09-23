@@ -11,7 +11,7 @@
 ##       https://github.com/jackyaz/scMerlin        ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2024-Jun-28
+# Last Modified: 2024-Sep-22
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -27,8 +27,8 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.6"
-readonly SCRIPT_VERSION="v2.5.6"
+readonly SCM_VERSION="v2.5.7"
+readonly SCRIPT_VERSION="v2.5.7"
 SCRIPT_BRANCH="master"
 SCRIPT_REPO="https://raw.githubusercontent.com/decoderman/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -321,8 +321,10 @@ Update_Check(){
 	echo "$doupdate,$localver,$serverver"
 }
 
-Update_Version(){
-	if [ -z "$1" ]; then
+Update_Version()
+{
+	if [ $# -eq 0 ] || [ -z "$1" ]
+	then
 		updatecheckresult="$(Update_Check)"
 		isupdate="$(echo "$updatecheckresult" | cut -f1 -d',')"
 		localver="$(echo "$updatecheckresult" | cut -f2 -d',')"
@@ -371,7 +373,8 @@ Update_Version(){
 		fi
 	fi
 
-	if [ "$1" = "force" ]; then
+	if [ "$1" = "force" ]
+	then
 		serverver=$(/usr/sbin/curl -fsL --retry 3 "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" | grep "SCRIPT_VERSION=" | grep -m1 -oE 'v[0-9]{1,2}([.][0-9]{1,2})([.][0-9]{1,2})')
 		Print_Output true "Downloading latest version ($serverver) of $SCRIPT_NAME" "$PASS"
 		Update_File shared-jy.tar.gz
@@ -2157,7 +2160,7 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-29] ##
+## Modified by Martinski W. [2024-Sep-22] ##
 ##----------------------------------------##
 case "$1" in
 	install)
@@ -2306,7 +2309,13 @@ case "$1" in
 		exit 0
 	;;
 	develop)
-		SCRIPT_BRANCH="develop"
+		if false  ## The "develop" branch is NOT available on this repository ##
+		then
+		    SCRIPT_BRANCH="develop"
+		else
+		    SCRIPT_BRANCH="master"
+		    printf "\n${REDct}The 'develop' branch is NOT available. Updating from the 'master' branch...${CLEARct}\n"
+		fi
 		SCRIPT_REPO="https://raw.githubusercontent.com/decoderman/$SCRIPT_NAME/$SCRIPT_BRANCH"
 		Update_Version force
 		exit 0
