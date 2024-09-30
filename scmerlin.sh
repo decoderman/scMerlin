@@ -915,23 +915,22 @@ EOF
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-25] ##
+## Modified by Martinski W. [2024-Sep-29] ##
 ##----------------------------------------##
 Get_Cron_Jobs()
 {
 	printf "%-27s┌────────── minute (0 - 59)\\n" " "
-	printf "%-27s│%-8s┌──────── hour (0 - 23)\\n" " " " "
-	printf "%-27s│%-8s│%-8s┌────── day of month (1 - 31)\\n" " " " " " "
-	printf "%-27s│%-8s│%-8s│%-8s┌──── month (1 - 12)\\n" " " " " " " " "
-	printf "%-27s│%-8s│%-8s│%-8s│%-8s┌── day of week (0 - 6 => Sunday - Saturday)\\n" " " " " " " " " " "
-	printf "%-27s│%-8s│%-8s│%-8s│%-8s│\\n" " " " " " " " " " "
-	printf "%-27s↓%-8s↓%-8s↓%-8s↓%-8s↓\\n" " " " " " " " " " "
-	printf "${GRNct}%-25s %-8s %-8s %-8s %-8s %-9s %s${CLEARFORMAT}\n" \
-	"Cron job name" "Min" "Hour" "DayM" "Month" "DayW" "Command"
+	printf "%-27s│%-9s┌──────── hour (0 - 23)\\n" " " " "
+	printf "%-27s│%-9s│%-9s┌────── day of month (1 - 31)\\n" " " " " " "
+	printf "%-27s│%-9s│%-9s│%-9s┌──── month (1 - 12)\\n" " " " " " " " "
+	printf "%-27s│%-9s│%-9s│%-9s│%-9s┌── day of week (0 - 6 => Sunday - Saturday)\\n" " " " " " " " " " "
+	printf "%-27s│%-9s│%-9s│%-9s│%-9s│\\n" " " " " " " " " " "
+	printf "%-27s↓%-9s↓%-9s↓%-9s↓%-9s↓\\n" " " " " " " " " " "
+	printf "${GRNct}%-25s %-9s %-9s %-9s %-9s %-10s %s${CLEARFORMAT}\n" "Cron Job Name" "Min" "Hour" "DayM" "Month" "DayW" "Command"
+	cronjobs="$(eval $cronListCmd | awk 'FS="#" {printf "%s %s\n",$2,$1}' | awk '{printf "%-25s %-9s %-9s %-9s %-9s %-10s ",$1,$2,$3,$4,$5,$6;for(i=7; i<=NF; ++i) printf "%s ", $i; print ""}')"
+	echo "$cronjobs"
 	eval $cronListCmd | sed 's/,/|/g' | awk 'FS="#" {printf "%s %s\n",$2,$1}' | \
 	awk '{printf "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"",$1,$2,$3,$4,$5,$6;for(i=7; i<=NF; ++i) printf "%s ", $i; print "\""}' | sed 's/ "$/"/g' > /tmp/scmcronjobs.tmp
-	cronjobs="$(eval $cronListCmd | awk 'FS="#" {printf "%s %s\n",$2,$1}' | awk '{printf "%-25s %-8s %-8s %-8s %-8s %-10s",$1,$2,$3,$4,$5,$6;for(i=7; i<=NF; ++i) printf "%s ", $i; print ""}')"
-	echo "$cronjobs"
 }
 
 Get_Addon_Pages(){
