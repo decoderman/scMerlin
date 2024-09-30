@@ -200,18 +200,23 @@ function BuildSortTableHtmlNoData(){
 	return tablehtml;
 }
 
-function BuildSortTableHtml(type) {
+/**----------------------------------------**/
+/** Modified by Martinski W. [2024-Sep-29] **/
+/**----------------------------------------**/
+function BuildSortTableHtml(type)
+{
 	var tablehtml = '<table border="0" cellpadding="0" cellspacing="0" width="100%" class="sortTable">';
-	if(type == 'sortTableProcesses'){
-		tablehtml += '<col style="width:50px;">';
-		tablehtml += '<col style="width:50px;">';
-		tablehtml += '<col style="width:75px;">';
-		tablehtml += '<col style="width:50px;">';
-		tablehtml += '<col style="width:50px;">';
-		tablehtml += '<col style="width:55px;">';
-		tablehtml += '<col style="width:50px;">';
-		tablehtml += '<col style="width:55px;">';
-		tablehtml += '<col style="width:740px;">';
+	if (type == 'sortTableProcesses')
+	{
+		tablehtml += '<col style="width:55px;">';   /**PID**/
+		tablehtml += '<col style="width:55px;">';   /**PPID**/
+		tablehtml += '<col style="width:75px;">';   /**USER**/
+		tablehtml += '<col style="width:50px;">';   /**STAT**/
+		tablehtml += '<col style="width:55px;">';   /**VSZ**/
+		tablehtml += '<col style="width:55px;">';   /**VSZ%**/
+		tablehtml += '<col style="width:50px;">';   /**CPU**/
+		tablehtml += '<col style="width:55px;">';   /**CPU%**/
+		tablehtml += '<col style="width:740px;">';  /**COMMAND**/
 		tablehtml += '<thead class="sortTableHeader">';
 		tablehtml += '<tr>';
 		tablehtml += '<th class="sortable" onclick="SortTable(\'sortTableProcesses\',\'arrayproclistlines\',this.innerHTML,\'sortnameproc\',\'sortdirproc\')">PID</th>';
@@ -227,7 +232,8 @@ function BuildSortTableHtml(type) {
 		tablehtml += '</thead>';
 		tablehtml += '<tbody class="sortTableContent">';
 		
-		for(var i = 0; i < arrayproclistlines.length; i++){
+		for (var i = 0; i < arrayproclistlines.length; i++)
+		{
 			tablehtml += '<tr class="sortRow">';
 			tablehtml += '<td>'+arrayproclistlines[i].PID+'</td>';
 			tablehtml += '<td>'+arrayproclistlines[i].PPID+'</td>';
@@ -241,14 +247,15 @@ function BuildSortTableHtml(type) {
 			tablehtml += '</tr>';
 		}
 	}
-	else if(type == 'sortTableCron'){
-		tablehtml += '<col style="width:175px;">';
-		tablehtml += '<col style="width:45px;">';
-		tablehtml += '<col style="width:45px;">';
-		tablehtml += '<col style="width:45px;">';
-		tablehtml += '<col style="width:45px;">';
-		tablehtml += '<col style="width:45px;">';
-		tablehtml += '<col style="width:740px;">';
+	else if (type == 'sortTableCron')
+	{
+		tablehtml += '<col style="width:175px;">';  /**Name**/
+		tablehtml += '<col style="width:55px;">';   /**Min**/
+		tablehtml += '<col style="width:55px;">';   /**Hour**/
+		tablehtml += '<col style="width:55px;">';   /**DayM**/
+		tablehtml += '<col style="width:55px;">';   /**Month**/
+		tablehtml += '<col style="width:55px;">';   /**DayW**/
+		tablehtml += '<col style="width:740px;">';  /**Command**/
 		tablehtml += '<thead class="sortTableHeader">';
 		tablehtml += '<tr>';
 		tablehtml += '<th class="sortable" onclick="SortTable(\'sortTableCron\',\'arraycronjobs\',this.innerHTML,\'sortnamecron\',\'sortdircron\')">Name</th>';
@@ -262,7 +269,8 @@ function BuildSortTableHtml(type) {
 		tablehtml += '</thead>';
 		tablehtml += '<tbody class="sortTableContent">';
 		
-		for(var i = 0; i < arraycronjobs.length; i++){
+		for (var i = 0; i < arraycronjobs.length; i++)
+		{
 			tablehtml += '<tr class="sortRow">';
 			tablehtml += '<td>'+arraycronjobs[i].Name+'</td>';
 			tablehtml += '<td>'+arraycronjobs[i].Min+'</td>';
@@ -668,21 +676,26 @@ function get_cronlist_file(){
 	});
 }
 
-function ParseCronJobs(data){
+/**----------------------------------------**/
+/** Modified by Martinski W. [2024-Sep-29] **/
+/**----------------------------------------**/
+function ParseCronJobs(data)
+{
 	var cronjobs = data.split('\n');
 	cronjobs = cronjobs.filter(Boolean);
 	arraycronjobs = [];
-	
-	for(var i = 0; i < cronjobs.length; i++){
+
+	for (var i = 0; i < cronjobs.length; i++)
+	{
 		try{
 			var cronfields = cronjobs[i].split(',');
 			var parsedcronline = new Object();
 			parsedcronline.Name = cronfields[0].trim().replace(/^\"/,'').replace(/\"$/,'');
-			parsedcronline.Min = cronfields[1].trim().replace(/^\"/,'').replace(/\"$/,'').replace(/\|/,',');
-			parsedcronline.Hour = cronfields[2].trim().replace(/^\"/,'').replace(/\"$/,'').replace(/\|/,',');
-			parsedcronline.DayM = cronfields[3].trim().replace(/^\"/,'').replace(/\"$/,'').replace(/\|/,',');
-			parsedcronline.Month = cronfields[4].trim().replace(/^\"/,'').replace(/\"$/,'').replace(/\|/,',');
-			parsedcronline.DayW = cronfields[5].trim().replace(/^\"/,'').replace(/\"$/,'').replace(/\|/,',');
+			parsedcronline.Min = cronfields[1].trim().replace(/^\"/,'').replace(/\"$/,'').replace(/\|/g,',');
+			parsedcronline.Hour = cronfields[2].trim().replace(/^\"/,'').replace(/\"$/,'').replace(/\|/g,',');
+			parsedcronline.DayM = cronfields[3].trim().replace(/^\"/,'').replace(/\"$/,'').replace(/\|/g,',');
+			parsedcronline.Month = cronfields[4].trim().replace(/^\"/,'').replace(/\"$/,'').replace(/\|/g,',');
+			parsedcronline.DayW = cronfields[5].trim().replace(/^\"/,'').replace(/\"$/,'').replace(/\|/g,',');
 			parsedcronline.Command = cronfields[6].trim().replace(/^\"/,'').replace(/\"$/,'');
 			arraycronjobs.push(parsedcronline);
 		}
@@ -690,7 +703,7 @@ function ParseCronJobs(data){
 			//do nothing,continue
 		}
 	}
-	
+
 	SortTable('sortTableCron','arraycronjobs',sortnamecron+' '+sortdircron.replace('desc','↑').replace('asc','↓').trim(),'sortnamecron','sortdircron');
 }
 
