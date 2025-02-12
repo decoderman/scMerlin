@@ -11,7 +11,7 @@
 ##       https://github.com/jackyaz/scMerlin        ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2024-Sep-29
+# Last Modified: 2025-Feb-11
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -27,16 +27,17 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.8"
-readonly SCRIPT_VERSION="v2.5.8"
+readonly SCM_VERSION="v2.5.9"
+readonly SCRIPT_VERSION="v2.5.9"
 SCRIPT_BRANCH="master"
 SCRIPT_REPO="https://raw.githubusercontent.com/decoderman/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
-readonly SCRIPT_WEBPAGE_DIR="$(readlink /www/user)"
+readonly SCRIPT_WEBPAGE_DIR="$(readlink -f /www/user)"
 readonly SCRIPT_WEB_DIR="$SCRIPT_WEBPAGE_DIR/$SCRIPT_NAME_LOWER"
 readonly SHARED_DIR="/jffs/addons/shared-jy"
 readonly SHARED_REPO="https://raw.githubusercontent.com/decoderman/shared-jy/master"
 readonly SHARED_WEB_DIR="$SCRIPT_WEBPAGE_DIR/shared-jy"
+readonly TEMP_MENU_TREE="/tmp/menuTree.js"
 readonly NTP_WATCHDOG_FILE="$SCRIPT_DIR/.watchdogenabled"
 readonly TAIL_TAINTED_FILE="$SCRIPT_DIR/.tailtaintdnsenabled"
 
@@ -69,13 +70,24 @@ readonly CLEARFORMAT="\\e[0m"
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Apr-28] ##
 ##-------------------------------------##
-readonly REDct="\033[1;31m\033[1m"
-readonly GRNct="\033[1;32m\033[1m"
-readonly YLWct="\033[1;33m\033[1m"
-readonly CLEARct="\033[0m"
-readonly BOLDUNDERLN="\033[1;4m"
+readonly CLRct="\e[0m"
+readonly REDct="\e[1;31m"
+readonly GRNct="\e[1;32m"
+readonly YLWct="\e[1;33m"
+readonly BOLDUNDERLN="\e[1;4m"
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Feb-11] ##
+##-------------------------------------##
+readonly scriptVersRegExp="v[0-9]{1,2}([.][0-9]{1,2})([.][0-9]{1,2})"
+readonly webPageFileRegExp="user([1-9]|[1-2][0-9])[.]asp"
+readonly webPageSiteMpRegExp="\{url: \"$webPageFileRegExp\", tabName: \"Sitemap\"\}"
+readonly webPageScriptRegExp="\{url: \"$webPageFileRegExp\", tabName: \"$SCRIPT_NAME\"\}"
 
 ### End of output format variables ###
+
+# Give priority to built-in binaries #
+export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jun-03] ##
@@ -217,15 +229,33 @@ GetTemperatureValue()
     fi
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-11] ##
+##----------------------------------------##
 # $1 = print to syslog, $2 = message to print, $3 = log level
-Print_Output(){
-	if [ "$1" = "true" ]; then
-		logger -t "$SCRIPT_NAME" "$2"
+Print_Output()
+{
+	local prioStr  prioNum
+	if [ $# -gt 2 ] && [ -n "$3" ]
+	then prioStr="$3"
+	else prioStr="NOTICE"
 	fi
-	printf "${BOLD}${3}%s${CLEARFORMAT}\\n\\n" "$2"
+	if [ "$1" = "true" ]
+	then
+		case "$prioStr" in
+		    "$CRIT") prioNum=2 ;;
+		     "$ERR") prioNum=3 ;;
+		    "$WARN") prioNum=4 ;;
+		    "$PASS") prioNum=6 ;; #INFO#
+		          *) prioNum=5 ;; #NOTICE#
+		esac
+		logger -t "$SCRIPT_NAME" -p $prioNum "$2"
+	fi
+	printf "${BOLD}${3}%s${CLEARFORMAT}\n\n" "$2"
 }
 
-Firmware_Version_Check(){
+Firmware_Version_Check()
+{
 	if nvram get rc_support | grep -qF "am_addons"; then
 		return 0
 	else
@@ -234,10 +264,13 @@ Firmware_Version_Check(){
 }
 
 ### Code for these functions inspired by https://github.com/Adamm00 - credit to @Adamm ###
-Check_Lock(){
-	if [ -f "/tmp/$SCRIPT_NAME_LOWER.lock" ]; then
+Check_Lock()
+{
+	if [ -f "/tmp/$SCRIPT_NAME_LOWER.lock" ]
+	then
 		ageoflock=$(($(date +%s) - $(date +%s -r "/tmp/$SCRIPT_NAME_LOWER.lock")))
-		if [ "$ageoflock" -gt 60 ]; then
+		if [ "$ageoflock" -gt 60 ]
+		then
 			Print_Output true "Stale lock file found (>60 seconds old) - purging lock" "$ERR"
 			kill "$(sed -n '1p' "/tmp/$SCRIPT_NAME_LOWER.lock")" >/dev/null 2>&1
 			Clear_Lock
@@ -262,16 +295,21 @@ Clear_Lock(){
 	return 0
 }
 
-##############################################
-
-Set_Version_Custom_Settings(){
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-11] ##
+##----------------------------------------##
+Set_Version_Custom_Settings()
+{
 	SETTINGSFILE="/jffs/addons/custom_settings.txt"
 	case "$1" in
 		local)
-			if [ -f "$SETTINGSFILE" ]; then
-				if [ "$(grep -c "scmerlin_version_local" $SETTINGSFILE)" -gt 0 ]; then
-					if [ "$2" != "$(grep "scmerlin_version_local" /jffs/addons/custom_settings.txt | cut -f2 -d' ')" ]; then
-						sed -i "s/scmerlin_version_local.*/scmerlin_version_local $2/" "$SETTINGSFILE"
+			if [ -f "$SETTINGSFILE" ]
+			then
+				if [ "$(grep -c "^scmerlin_version_local" $SETTINGSFILE)" -gt 0 ]
+				then
+					if [ "$2" != "$(grep "^scmerlin_version_local" "$SETTINGSFILE" | cut -f2 -d' ')" ]
+					then
+						sed -i "s/^scmerlin_version_local.*/scmerlin_version_local $2/" "$SETTINGSFILE"
 					fi
 				else
 					echo "scmerlin_version_local $2" >> "$SETTINGSFILE"
@@ -281,10 +319,13 @@ Set_Version_Custom_Settings(){
 			fi
 		;;
 		server)
-			if [ -f "$SETTINGSFILE" ]; then
-				if [ "$(grep -c "scmerlin_version_server" $SETTINGSFILE)" -gt 0 ]; then
-					if [ "$2" != "$(grep "scmerlin_version_server" /jffs/addons/custom_settings.txt | cut -f2 -d' ')" ]; then
-						sed -i "s/scmerlin_version_server.*/scmerlin_version_server $2/" "$SETTINGSFILE"
+			if [ -f "$SETTINGSFILE" ]
+			then
+				if [ "$(grep -c "^scmerlin_version_server" $SETTINGSFILE)" -gt 0 ]
+				then
+					if [ "$2" != "$(grep "^scmerlin_version_server" "$SETTINGSFILE" | cut -f2 -d' ')" ]
+					then
+						sed -i "s/^scmerlin_version_server.*/scmerlin_version_server $2/" "$SETTINGSFILE"
 					fi
 				else
 					echo "scmerlin_version_server $2" >> "$SETTINGSFILE"
@@ -296,20 +337,27 @@ Set_Version_Custom_Settings(){
 	esac
 }
 
-Update_Check(){
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-11] ##
+##----------------------------------------##
+Update_Check()
+{
 	echo 'var updatestatus = "InProgress";' > "$SCRIPT_WEB_DIR/detect_update.js"
 	doupdate="false"
-	localver=$(grep "SCRIPT_VERSION=" "/jffs/scripts/$SCRIPT_NAME_LOWER" | grep -m1 -oE 'v[0-9]{1,2}([.][0-9]{1,2})([.][0-9]{1,2})')
-	/usr/sbin/curl -fsL --retry 3 "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" | grep -qF "jackyaz" || { Print_Output true "404 error detected - stopping update" "$ERR"; return 1; }
-	serverver=$(/usr/sbin/curl -fsL --retry 3 "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" | grep "SCRIPT_VERSION=" | grep -m1 -oE 'v[0-9]{1,2}([.][0-9]{1,2})([.][0-9]{1,2})')
-	if [ "$localver" != "$serverver" ]; then
+	localver="$(grep "SCRIPT_VERSION=" "/jffs/scripts/$SCRIPT_NAME_LOWER" | grep -m1 -oE "$scriptVersRegExp")"
+	curl -fsL --retry 4 --retry-delay 5 "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" | grep -qF "jackyaz" || \
+    { Print_Output true "404 error detected - stopping update" "$ERR"; return 1; }
+	serverver="$(curl -fsL --retry 4 --retry-delay 5 "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" | grep "SCRIPT_VERSION=" | grep -m1 -oE "$scriptVersRegExp")"
+	if [ "$localver" != "$serverver" ]
+	then
 		doupdate="version"
 		Set_Version_Custom_Settings server "$serverver"
 		echo 'var updatestatus = "'"$serverver"'";'  > "$SCRIPT_WEB_DIR/detect_update.js"
 	else
 		localmd5="$(md5sum "/jffs/scripts/$SCRIPT_NAME_LOWER" | awk '{print $1}')"
-		remotemd5="$(curl -fsL --retry 3 "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" | md5sum | awk '{print $1}')"
-		if [ "$localmd5" != "$remotemd5" ]; then
+		remotemd5="$(curl -fsL --retry 4 --retry-delay 5 "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" | md5sum | awk '{print $1}')"
+		if [ "$localmd5" != "$remotemd5" ]
+		then
 			doupdate="md5"
 			Set_Version_Custom_Settings server "$serverver-hotfix"
 			echo 'var updatestatus = "'"$serverver-hotfix"'";'  > "$SCRIPT_WEB_DIR/detect_update.js"
@@ -321,6 +369,9 @@ Update_Check(){
 	echo "$doupdate,$localver,$serverver"
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-11] ##
+##----------------------------------------##
 Update_Version()
 {
 	if [ $# -eq 0 ] || [ -z "$1" ]
@@ -336,12 +387,13 @@ Update_Version()
 			Print_Output true "MD5 hash of $SCRIPT_NAME does not match - hotfix available - $serverver" "$PASS"
 		fi
 
-		if [ "$isupdate" != "false" ]; then
-			printf "\\n${BOLD}Do you want to continue with the update? (y/n)${CLEARFORMAT}  "
+		if [ "$isupdate" != "false" ]
+		then
+			printf "\n${BOLD}Do you want to continue with the update? (y/n)${CLEARFORMAT}  "
 			read -r confirm
 			case "$confirm" in
 				y|Y)
-					printf "\\n"
+					printf "\n"
 					Update_File shared-jy.tar.gz
 					Update_File scmerlin_www.asp
 					Update_File sitemap.asp
@@ -352,7 +404,8 @@ Update_Version()
 					Update_File sc.func
 					Update_File S99tailtop
 					Update_File S95tailtaintdns
-					Download_File "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" "/jffs/scripts/$SCRIPT_NAME_LOWER" && Print_Output true "$SCRIPT_NAME successfully updated"
+					Download_File "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" "/jffs/scripts/$SCRIPT_NAME_LOWER" && \
+					Print_Output true "$SCRIPT_NAME successfully updated" "$PASS"
 					chmod 0755 "/jffs/scripts/$SCRIPT_NAME_LOWER"
 					Set_Version_Custom_Settings local "$serverver"
 					Set_Version_Custom_Settings server "$serverver"
@@ -362,7 +415,7 @@ Update_Version()
 					exit 0
 				;;
 				*)
-					printf "\\n"
+					printf "\n"
 					Clear_Lock
 					return 1
 				;;
@@ -375,7 +428,7 @@ Update_Version()
 
 	if [ "$1" = "force" ]
 	then
-		serverver=$(/usr/sbin/curl -fsL --retry 3 "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" | grep "SCRIPT_VERSION=" | grep -m1 -oE 'v[0-9]{1,2}([.][0-9]{1,2})([.][0-9]{1,2})')
+		serverver="$(curl -fsL --retry 4 --retry-delay 5 "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" | grep "SCRIPT_VERSION=" | grep -m1 -oE "$scriptVersRegExp")"
 		Print_Output true "Downloading latest version ($serverver) of $SCRIPT_NAME" "$PASS"
 		Update_File shared-jy.tar.gz
 		Update_File scmerlin_www.asp
@@ -387,38 +440,54 @@ Update_Version()
 		Update_File sc.func
 		Update_File S99tailtop
 		Update_File S95tailtaintdns
-		Download_File "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" "/jffs/scripts/$SCRIPT_NAME_LOWER" && Print_Output true "$SCRIPT_NAME successfully updated"
+		Download_File "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" "/jffs/scripts/$SCRIPT_NAME_LOWER" && \
+		Print_Output true "$SCRIPT_NAME successfully updated" "$PASS"
 		chmod 0755 "/jffs/scripts/$SCRIPT_NAME_LOWER"
 		Set_Version_Custom_Settings local "$serverver"
 		Set_Version_Custom_Settings server "$serverver"
 		Clear_Lock
-		if [ -z "$2" ]; then
+		if [ $# -lt 2 ] || [ -z "$2" ]
+		then
 			PressEnter
 			exec "$0"
-		elif [ "$2" = "unattended" ]; then
+		elif [ "$2" = "unattended" ]
+		then
 			exec "$0" postupdate
 		fi
 		exit 0
 	fi
 }
 
-Update_File(){
-	if [ "$1" = "scmerlin_www.asp" ] || [ "$1" = "sitemap.asp" ] ; then
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-11] ##
+##----------------------------------------##
+Update_File()
+{
+	if [ "$1" = "scmerlin_www.asp" ] || [ "$1" = "sitemap.asp" ]
+	then
 		tmpfile="/tmp/$1"
-		Download_File "$SCRIPT_REPO/$1" "$tmpfile"
-		if ! diff -q "$tmpfile" "$SCRIPT_DIR/$1" >/dev/null 2>&1; then
-			if [ -f "$SCRIPT_DIR/$1" ]; then
+		if [ -f "$SCRIPT_DIR/$1" ]
+		then
+			Download_File "$SCRIPT_REPO/$1" "$tmpfile"
+			if ! diff -q "$tmpfile" "$SCRIPT_DIR/$1" >/dev/null 2>&1
+			then
 				Get_WebUI_Page "$SCRIPT_DIR/$1"
-				sed -i "\\~$MyPage~d" /tmp/menuTree.js
-				rm -f "$SCRIPT_WEBPAGE_DIR/$MyPage" 2>/dev/null
+				sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
+				rm -f "$SCRIPT_WEBPAGE_DIR/$MyWebPage" 2>/dev/null
+				Download_File "$SCRIPT_REPO/$1" "$SCRIPT_DIR/$1"
+				Print_Output true "New version of $1 downloaded" "$PASS"
+				Mount_WebUI
 			fi
+			rm -f "$tmpfile"
+		else
 			Download_File "$SCRIPT_REPO/$1" "$SCRIPT_DIR/$1"
 			Print_Output true "New version of $1 downloaded" "$PASS"
 			Mount_WebUI
 		fi
-		rm -f "$tmpfile"
-	elif [ "$1" = "shared-jy.tar.gz" ]; then
-		if [ ! -f "$SHARED_DIR/$1.md5" ]; then
+	elif [ "$1" = "shared-jy.tar.gz" ]
+	then
+		if [ ! -f "$SHARED_DIR/$1.md5" ]
+		then
 			Download_File "$SHARED_REPO/$1" "$SHARED_DIR/$1"
 			Download_File "$SHARED_REPO/$1.md5" "$SHARED_DIR/$1.md5"
 			tar -xzf "$SHARED_DIR/$1" -C "$SHARED_DIR"
@@ -426,8 +495,9 @@ Update_File(){
 			Print_Output true "New version of $1 downloaded" "$PASS"
 		else
 			localmd5="$(cat "$SHARED_DIR/$1.md5")"
-			remotemd5="$(curl -fsL --retry 3 "$SHARED_REPO/$1.md5")"
-			if [ "$localmd5" != "$remotemd5" ]; then
+			remotemd5="$(curl -fsL --retry 4 --retry-delay 5 "$SHARED_REPO/$1.md5")"
+			if [ "$localmd5" != "$remotemd5" ]
+			then
 				Download_File "$SHARED_REPO/$1" "$SHARED_DIR/$1"
 				Download_File "$SHARED_REPO/$1.md5" "$SHARED_DIR/$1.md5"
 				tar -xzf "$SHARED_DIR/$1" -C "$SHARED_DIR"
@@ -435,11 +505,14 @@ Update_File(){
 				Print_Output true "New version of $1 downloaded" "$PASS"
 			fi
 		fi
-	elif [ "$1" = "S99tailtop" ]; then
+	elif [ "$1" = "S99tailtop" ]
+	then
 		tmpfile="/tmp/$1"
 		Download_File "$SCRIPT_REPO/$1" "$tmpfile"
-		if ! diff -q "$tmpfile" "$SCRIPT_DIR/$1" >/dev/null 2>&1; then
-			if [ -f "$SCRIPT_DIR/S99tailtop" ]; then
+		if ! diff -q "$tmpfile" "$SCRIPT_DIR/$1" >/dev/null 2>&1
+		then
+			if [ -f "$SCRIPT_DIR/S99tailtop" ]
+			then
 				"$SCRIPT_DIR/S99tailtop" stop >/dev/null 2>&1
 				sleep 2
 			fi
@@ -449,11 +522,14 @@ Update_File(){
 			Print_Output true "New version of $1 downloaded" "$PASS"
 		fi
 		rm -f "$tmpfile"
-	elif [ "$1" = "tailtop" ] || [ "$1" = "tailtopd" ]; then
+	elif [ "$1" = "tailtop" ] || [ "$1" = "tailtopd" ]
+	then
 		tmpfile="/tmp/$1"
 		Download_File "$SCRIPT_REPO/$1" "$tmpfile"
-		if ! diff -q "$tmpfile" "$SCRIPT_DIR/$1" >/dev/null 2>&1; then
-			if [ -f "$SCRIPT_DIR/S99tailtop" ]; then
+		if ! diff -q "$tmpfile" "$SCRIPT_DIR/$1" >/dev/null 2>&1
+		then
+			if [ -f "$SCRIPT_DIR/S99tailtop" ]
+			then
 				"$SCRIPT_DIR/S99tailtop" stop >/dev/null 2>&1
 				sleep 2
 			fi
@@ -463,11 +539,14 @@ Update_File(){
 			Print_Output true "New version of $1 downloaded" "$PASS"
 		fi
 		rm -f "$tmpfile"
-	elif [ "$1" = "S95tailtaintdns" ]; then
+	elif [ "$1" = "S95tailtaintdns" ]
+	then
 		tmpfile="/tmp/$1"
 		Download_File "$SCRIPT_REPO/$1" "$tmpfile"
-		if ! diff -q "$tmpfile" "$SCRIPT_DIR/$1" >/dev/null 2>&1; then
-			if [ -f "$SCRIPT_DIR/S95tailtaintdns" ]; then
+		if ! diff -q "$tmpfile" "$SCRIPT_DIR/$1" >/dev/null 2>&1
+		then
+			if [ -f "$SCRIPT_DIR/S95tailtaintdns" ]
+			then
 				"$SCRIPT_DIR/S95tailtaintdns" stop >/dev/null 2>&1
 				sleep 2
 			fi
@@ -479,11 +558,14 @@ Update_File(){
 			Print_Output true "New version of $1 downloaded" "$PASS"
 		fi
 		rm -f "$tmpfile"
-	elif [ "$1" = "tailtaintdns" ] || [ "$1" = "tailtaintdnsd" ]; then
+	elif [ "$1" = "tailtaintdns" ] || [ "$1" = "tailtaintdnsd" ]
+	then
 		tmpfile="/tmp/$1"
 		Download_File "$SCRIPT_REPO/$1" "$tmpfile"
-		if ! diff -q "$tmpfile" "$SCRIPT_DIR/$1" >/dev/null 2>&1; then
-			if [ -f "$SCRIPT_DIR/S95tailtaintdns" ]; then
+		if ! diff -q "$tmpfile" "$SCRIPT_DIR/$1" >/dev/null 2>&1
+		then
+			if [ -f "$SCRIPT_DIR/S95tailtaintdns" ]
+			then
 				"$SCRIPT_DIR/S95tailtaintdns" stop >/dev/null 2>&1
 				sleep 2
 			fi
@@ -495,10 +577,12 @@ Update_File(){
 			Print_Output true "New version of $1 downloaded" "$PASS"
 		fi
 		rm -f "$tmpfile"
-	elif [ "$1" = "sc.func" ]; then
+	elif [ "$1" = "sc.func" ]
+	then
 		tmpfile="/tmp/$1"
 		Download_File "$SCRIPT_REPO/$1" "$tmpfile"
-		if ! diff -q "$tmpfile" "$SCRIPT_DIR/$1" >/dev/null 2>&1; then
+		if ! diff -q "$tmpfile" "$SCRIPT_DIR/$1" >/dev/null 2>&1
+		then
 			Download_File "$SCRIPT_REPO/$1" "$SCRIPT_DIR/$1"
 			chmod 0755 "$SCRIPT_DIR/$1"
 			Print_Output true "New version of $1 downloaded" "$PASS"
@@ -509,7 +593,8 @@ Update_File(){
 	fi
 }
 
-Validate_Number(){
+Validate_Number()
+{
 	if [ "$1" -eq "$1" ] 2>/dev/null; then
 		return 0
 	else
@@ -517,7 +602,8 @@ Validate_Number(){
 	fi
 }
 
-Create_Dirs(){
+Create_Dirs()
+{
 	if [ ! -d "$SCRIPT_DIR" ]; then
 		mkdir -p "$SCRIPT_DIR"
 	fi
@@ -555,10 +641,12 @@ Create_Symlinks()
 	fi
 }
 
-Auto_ServiceEvent(){
+Auto_ServiceEvent()
+{
 	case $1 in
 		create)
-			if [ -f /jffs/scripts/service-event ]; then
+			if [ -f /jffs/scripts/service-event ]
+			then
 				STARTUPLINECOUNT=$(grep -c '# '"$SCRIPT_NAME" /jffs/scripts/service-event)
 				STARTUPLINECOUNTEX=$(grep -cx 'if echo "$2" | /bin/grep -q "'"$SCRIPT_NAME_LOWER"'"; then { /jffs/scripts/'"$SCRIPT_NAME_LOWER"' service_event "$@" & }; fi # '"$SCRIPT_NAME" /jffs/scripts/service-event)
 
@@ -591,17 +679,20 @@ Auto_ServiceEvent(){
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Mar-12] ##
 ##----------------------------------------##
-Auto_Startup(){
+Auto_Startup()
+{
 	case $1 in
 		create)
-			if [ -f /jffs/scripts/post-mount ]; then
+			if [ -f /jffs/scripts/post-mount ]
+			then
 				STARTUPLINECOUNT=$(grep -i -c '# '"$SCRIPT_NAME$" /jffs/scripts/post-mount)
 
 				if [ "$STARTUPLINECOUNT" -gt 0 ]; then
 					sed -i -e '/# '"$SCRIPT_NAME$"'/d' /jffs/scripts/post-mount
 				fi
 			fi
-			if [ -f /jffs/scripts/services-start ]; then
+			if [ -f /jffs/scripts/services-start ]
+			then
 				## Clean up erroneous entries ##
 				grep -iq '# '"${SCRIPT_NAME}[$]$" /jffs/scripts/services-start && \
 				sed -i -e '/# '"${SCRIPT_NAME}[$]$"'/d' /jffs/scripts/services-start
@@ -646,60 +737,112 @@ Auto_Startup(){
 	esac
 }
 
-Download_File(){
-	/usr/sbin/curl -fsL --retry 3 "$1" -o "$2"
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-11] ##
+##----------------------------------------##
+Download_File()
+{ /usr/sbin/curl -LSs --retry 4 --retry-delay 5 --retry-connrefused "$1" -o "$2" ; }
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Feb-11] ##
+##-------------------------------------##
+_Check_WebGUI_Page_Exists_()
+{
+   local webPageStr  webPageFile  webPageLineRegExp  theWebPage
+
+   if [ $# -eq 0 ] || [ -z "$1" ] || [ ! -f "$TEMP_MENU_TREE" ]
+   then echo "NONE" ; return 1 ; fi
+
+   theWebPage="NONE"
+   if [ "${1##*/}" = "sitemap.asp" ]
+   then webPageLineRegExp="$webPageSiteMpRegExp"
+   else webPageLineRegExp="$webPageScriptRegExp"
+   fi
+   webPageStr="$(grep -E -m1 "$webPageLineRegExp" "$TEMP_MENU_TREE")"
+   if [ -n "$webPageStr" ]
+   then
+       webPageFile="$(echo "$webPageStr" | grep -owE "$webPageFileRegExp" | head -n1)"
+       if [ -n "$webPageFile" ] && [ -s "${SCRIPT_WEBPAGE_DIR}/$webPageFile" ]
+       then theWebPage="$webPageFile" ; fi
+   fi
+   echo "$theWebPage"
 }
 
-Get_WebUI_Page(){
-	MyPage="none"
-	for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-		page="/www/user/user$i.asp"
-		if [ -f "$page" ] && [ "$(md5sum < "$1")" = "$(md5sum < "$page")" ]; then
-			MyPage="user$i.asp"
-			return
-		elif [ "$MyPage" = "none" ] && [ ! -f "$page" ]; then
-			MyPage="user$i.asp"
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-11] ##
+##----------------------------------------##
+Get_WebUI_Page()
+{
+	local webPageFile  webPagePath
+
+	MyWebPage="$(_Check_WebGUI_Page_Exists_ "$1")"
+
+	for indx in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
+	do
+		webPageFile="user${indx}.asp"
+		webPagePath="${SCRIPT_WEBPAGE_DIR}/$webPageFile"
+
+		if [ -s "$webPagePath" ] && \
+		   [ "$(md5sum < "$1")" = "$(md5sum < "$webPagePath")" ]
+		then
+			MyWebPage="$webPageFile"
+			break
+		elif [ "$MyWebPage" = "NONE" ] && [ ! -s "$webPagePath" ]
+		then
+			MyWebPage="$webPageFile"
 		fi
 	done
 }
 
 ### function based on @dave14305's FlexQoS webconfigpage function ###
-Get_WebUI_URL(){
-	urlpage=""
-	urlproto=""
-	urldomain=""
-	urlport=""
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-11] ##
+##----------------------------------------##
+Get_WebUI_URL()
+{
+	local urlPage=""  urlProto=""  urlDomain=""  urlPort=""
 
-	urlpage="$(sed -nE "/$SCRIPT_NAME/ s/.*url\: \"(user[0-9]+\.asp)\".*/\1/p" /tmp/menuTree.js)"
+	if [ ! -f "$TEMP_MENU_TREE" ]
+	then
+		echo "**ERROR**: WebUI page NOT mounted"
+		return 1
+	fi
+
+	urlPage="$(sed -nE "/$SCRIPT_NAME/ s/.*url\: \"(user[0-9]+\.asp)\".*/\1/p" "$TEMP_MENU_TREE")"
+
 	if [ "$(nvram get http_enable)" -eq 1 ]; then
-		urlproto="https"
+		urlProto="https"
 	else
-		urlproto="http"
+		urlProto="http"
 	fi
 	if [ -n "$(nvram get lan_domain)" ]; then
-		urldomain="$(nvram get lan_hostname).$(nvram get lan_domain)"
+		urlDomain="$(nvram get lan_hostname).$(nvram get lan_domain)"
 	else
-		urldomain="$(nvram get lan_ipaddr)"
+		urlDomain="$(nvram get lan_ipaddr)"
 	fi
-	if [ "$(nvram get ${urlproto}_lanport)" -eq 80 ] || [ "$(nvram get ${urlproto}_lanport)" -eq 443 ]; then
-		urlport=""
+	if [ "$(nvram get ${urlProto}_lanport)" -eq 80 ] || \
+	   [ "$(nvram get ${urlProto}_lanport)" -eq 443 ]
+	then
+		urlPort=""
 	else
-		urlport=":$(nvram get ${urlproto}_lanport)"
+		urlPort=":$(nvram get ${urlProto}_lanport)"
 	fi
 
-	if echo "$urlpage" | grep -qE "user[0-9]+\.asp"; then
-		echo "${urlproto}://${urldomain}${urlport}/${urlpage}" | tr "A-Z" "a-z"
+	if echo "$urlPage" | grep -qE "^${webPageFileRegExp}$" && \
+	   [ -s "${SCRIPT_WEBPAGE_DIR}/$urlPage" ]
+	then
+		echo "${urlProto}://${urlDomain}${urlPort}/${urlPage}" | tr "A-Z" "a-z"
 	else
-		echo "WebUI page not found"
+		echo "**ERROR**: WebUI page NOT found"
 	fi
 }
-### ###
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Jun-09] ##
-##----------------------------------------##
 ### locking mechanism code credit to Martineau (@MartineauUK) ###
-Mount_WebUI(){
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-11] ##
+##----------------------------------------##
+Mount_WebUI()
+{
 	realpage=""
 	Print_Output true "Mounting WebUI tabs for $SCRIPT_NAME" "$PASS"
 	LOCKFILE=/tmp/addonwebui.lock
@@ -707,17 +850,19 @@ Mount_WebUI(){
 	eval exec "$FD>$LOCKFILE"
 	flock -x "$FD"
 	Get_WebUI_Page "$SCRIPT_DIR/scmerlin_www.asp"
-	if [ "$MyPage" = "none" ]; then
-		Print_Output true "Unable to mount $SCRIPT_NAME WebUI page, exiting" "$CRIT"
+	if [ "$MyWebPage" = "NONE" ]
+	then
+		Print_Output true "**ERROR** Unable to mount $SCRIPT_NAME WebUI page, exiting" "$CRIT"
 		flock -u "$FD"
 		return 1
 	fi
-	cp -f "$SCRIPT_DIR/scmerlin_www.asp" "$SCRIPT_WEBPAGE_DIR/$MyPage"
-	echo "$SCRIPT_NAME" > "$SCRIPT_WEBPAGE_DIR/$(echo $MyPage | cut -f1 -d'.').title"
+	cp -fp "$SCRIPT_DIR/scmerlin_www.asp" "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
+	echo "$SCRIPT_NAME" > "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
 
-	if [ "$(uname -o)" = "ASUSWRT-Merlin" ]; then
+	if [ "$(uname -o)" = "ASUSWRT-Merlin" ]
+	then
 		if [ ! -f /tmp/index_style.css ]; then
-			cp -f /www/index_style.css /tmp/
+			cp -fp /www/index_style.css /tmp/
 		fi
 
 		if ! grep -q '.menu_Addons' /tmp/index_style.css ; then
@@ -732,7 +877,8 @@ Mount_WebUI(){
 			sed -i '/dropdown-content/d' /tmp/index_style.css
 		fi
 
-		if ! grep -q '.dropdown-content {visibility: visible;}' /tmp/index_style.css ; then
+		if ! grep -q '.dropdown-content {visibility: visible;}' /tmp/index_style.css
+		then
 			{
 				echo ".dropdown-content {top: 0px; left: 185px; visibility: hidden; position: absolute; background-color: #3a4042; min-width: 165px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); z-index: 1000;}"
 				echo ".dropdown-content a {padding: 6px 8px; text-decoration: none; display: block; height: 100%; min-height: 20px; max-height: 40px; font-weight: bold; text-shadow: 1px 1px 0px black; font-family: Verdana, MS UI Gothic, MS P Gothic, Microsoft Yahei UI, sans-serif; font-size: 12px; border: 1px solid #6B7071;}"
@@ -744,16 +890,15 @@ Mount_WebUI(){
 		umount /www/index_style.css 2>/dev/null
 		mount -o bind /tmp/index_style.css /www/index_style.css
 
-		if [ ! -f /tmp/menuTree.js ]; then
-			cp -f /www/require/modules/menuTree.js /tmp/
+		if [ ! -f "$TEMP_MENU_TREE" ]; then
+			cp -fp /www/require/modules/menuTree.js "$TEMP_MENU_TREE"
 		fi
-
-		sed -i "\\~$MyPage~d" /tmp/menuTree.js
+		sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
 
 		## Use the same BEGIN/END insert tags here as those used in the "Menu_Uninstall()" function ##
-		if ! grep -qE '^menuName: "Addons"' /tmp/menuTree.js
+		if ! grep -qE '^menuName: "Addons"' "$TEMP_MENU_TREE"
 		then
-			lineinsbefore="$(($(grep -n "^exclude:" /tmp/menuTree.js | cut -f1 -d':') - 1))"
+			lineinsbefore="$(($(grep -n "^exclude:" "$TEMP_MENU_TREE" | cut -f1 -d':') - 1))"
 			sed -i "$lineinsbefore""i\
 ${BEGIN_InsertTag}\n\
 ,\n{\n\
@@ -763,26 +908,28 @@ tab: [\n\
 {url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm')\", tabName: \"Help & Support\"},\n\
 {url: \"NULL\", tabName: \"__INHERIT__\"}\n\
 ]\n}\n\
-${ENDIN_InsertTag}" /tmp/menuTree.js
+${ENDIN_InsertTag}" "$TEMP_MENU_TREE"
 		fi
 
-		sed -i "/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/i {url: \"$MyPage\", tabName: \"$SCRIPT_NAME\"}," /tmp/menuTree.js
-		realpage="$MyPage"
+		sed -i "/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/i {url: \"$MyWebPage\", tabName: \"$SCRIPT_NAME\"}," "$TEMP_MENU_TREE"
+		realpage="$MyWebPage"
 
-		if [ -f "$SCRIPT_DIR/sitemap.asp" ]; then
+		if [ -f "$SCRIPT_DIR/sitemap.asp" ]
+		then
 			Get_WebUI_Page "$SCRIPT_DIR/sitemap.asp"
-			if [ "$MyPage" = "none" ]; then
-				Print_Output true "Unable to mount $SCRIPT_NAME sitemap page, exiting" "$CRIT"
+			if [ "$MyWebPage" = "NONE" ]
+			then
+				Print_Output true "**ERROR** Unable to mount $SCRIPT_NAME Sitemap page, exiting" "$CRIT"
 				flock -u "$FD"
 				return 1
 			fi
-			cp -f "$SCRIPT_DIR/sitemap.asp" "$SCRIPT_WEBPAGE_DIR/$MyPage"
-			sed -i "\\~$MyPage~d" /tmp/menuTree.js
-			sed -i "/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/a {url: \"$MyPage\", tabName: \"Sitemap\"}," /tmp/menuTree.js
+			cp -fp "$SCRIPT_DIR/sitemap.asp" "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
+			sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
+			sed -i "/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/a {url: \"$MyWebPage\", tabName: \"Sitemap\"}," "$TEMP_MENU_TREE"
 
 			umount /www/state.js 2>/dev/null
 			cp -f /www/state.js /tmp/
-			sed -i 's~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\">~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\"><a style=\\"font-weight: bolder;text-decoration:underline;cursor:pointer;\\" href=\\"\/'"$MyPage"'\\" target=\\"_blank\\">Sitemap<\/a>\&nbsp\|\&nbsp~' /tmp/state.js
+			sed -i 's~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\">~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\"><a style=\\"font-weight: bolder;text-decoration:underline;cursor:pointer;\\" href=\\"\/'"$MyWebPage"'\\" target=\\"_blank\\">Sitemap<\/a>\&nbsp\|\&nbsp~' /tmp/state.js
 
 			cat << 'EOF' >> /tmp/state.js
 var myMenu = [];
@@ -904,14 +1051,23 @@ AddDropdowns();
 EOF
 			mount -o bind /tmp/state.js /www/state.js
 
-			Print_Output true "Mounted Sitemap page as $MyPage" "$PASS"
+			Print_Output true "Mounted Sitemap page as $MyWebPage" "$PASS"
 		fi
 
 		umount /www/require/modules/menuTree.js 2>/dev/null
-		mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
+		mount -o bind "$TEMP_MENU_TREE" /www/require/modules/menuTree.js
 	fi
 	flock -u "$FD"
 	Print_Output true "Mounted $SCRIPT_NAME WebUI page as $realpage" "$PASS"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Feb-11] ##
+##-------------------------------------##
+_CheckFor_WebGUI_Page_()
+{
+   if [ "$(_Check_WebGUI_Page_Exists_ "scmerlin_www.asp")" = "NONE" ]
+   then Mount_WebUI ; fi
 }
 
 ##----------------------------------------##
@@ -933,31 +1089,32 @@ Get_Cron_Jobs()
 	awk '{printf "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"",$1,$2,$3,$4,$5,$6;for(i=7; i<=NF; ++i) printf "%s ", $i; print "\""}' | sed 's/ "$/"/g' > /tmp/scmcronjobs.tmp
 }
 
-Get_Addon_Pages(){
-	urlpage=""
-	urlproto=""
-	urldomain=""
-	urlport=""
+Get_Addon_Pages()
+{
+	local urlProto=""  urlDomain=""  urlPort=""
 
 	if [ "$(nvram get http_enable)" -eq 1 ]; then
-		urlproto="https"
+		urlProto="https"
 	else
-		urlproto="http"
+		urlProto="http"
 	fi
 	if [ -n "$(nvram get lan_domain)" ]; then
-		urldomain="$(nvram get lan_hostname).$(nvram get lan_domain)"
+		urlDomain="$(nvram get lan_hostname).$(nvram get lan_domain)"
 	else
-		urldomain="$(nvram get lan_ipaddr)"
+		urlDomain="$(nvram get lan_ipaddr)"
 	fi
-	if [ "$(nvram get ${urlproto}_lanport)" -eq 80 ] || [ "$(nvram get ${urlproto}_lanport)" -eq 443 ]; then
-		urlport=""
+	if [ "$(nvram get ${urlProto}_lanport)" -eq 80 ] || \
+	   [ "$(nvram get ${urlProto}_lanport)" -eq 443 ]
+	then
+		urlPort=""
 	else
-		urlport=":$(nvram get ${urlproto}_lanport)"
+		urlPort=":$(nvram get ${urlProto}_lanport)"
 	fi
 
-	weburl="$(echo "${urlproto}://${urldomain}${urlport}/" | tr "A-Z" "a-z")"
-	grep "user.*\.asp" /tmp/menuTree.js | awk -F'"' -v wu="$weburl" '{printf "%-12s "wu"%s\n",$4,$2}' | sort -f
-	grep "user.*\.asp" /tmp/menuTree.js | awk -F'"' -v wu="$weburl" '{printf "%s,"wu"%s\n",$4,$2}' > /tmp/addonwebpages.tmp
+	weburl="$(echo "${urlProto}://${urlDomain}${urlPort}/" | tr "A-Z" "a-z")"
+
+	grep "user.*\.asp" "$TEMP_MENU_TREE" | awk -F'"' -v wu="$weburl" '{printf "%-12s "wu"%s\n",$4,$2}' | sort -f
+	grep "user.*\.asp" "$TEMP_MENU_TREE" | awk -F'"' -v wu="$weburl" '{printf "%s,"wu"%s\n",$4,$2}' > /tmp/addonwebpages.tmp
 }
 
 ##-------------------------------------##
@@ -991,11 +1148,11 @@ NTP_ReadyCheckOption()
 		disable)
 			if "$isInteractiveMenuMode"
 			then
-			    printf "${REDct}**${YLWct}WARNING${REDct}**${CLEARct}\n"
+			    printf "${REDct}**${YLWct}WARNING${REDct}**${CLRct}\n"
 			    printf "You're about to disable the \"NTP Ready\" check. This is generally not recommended\n"
 			    printf "unless you have some very specific conditions (e.g. WAN state is not connected).\n"
 			    printf "Remember to re-enable the \"NTP Ready\" check as soon as you possibly can.\n\n"
-			    if ! _WaitForConfirmation_ "Proceed to ${REDct}DISABLE${CLEARct} the 'NTP Ready' check"
+			    if ! _WaitForConfirmation_ "Proceed to ${REDct}DISABLE${CLRct} the 'NTP Ready' check"
 			    then return 1 ; fi
 			fi
 			echo "${NTP_READY_CHECK_KEYN}=DISABLED" > "$NTP_READY_CHECK_CONF"
@@ -1153,8 +1310,10 @@ TailTaintDNSmasq()
 	esac
 }
 
-Process_Upgrade(){
-	if [ -f /opt/etc/init.d/S99tailtop ]; then
+Process_Upgrade()
+{
+	if [ -f /opt/etc/init.d/S99tailtop ]
+	then
 		/opt/etc/init.d/S99tailtop stop >/dev/null 2>&1
 		sleep 2
 		rm -f /opt/etc/init.d/S99tailtop 2>/dev/null
@@ -1163,7 +1322,8 @@ Process_Upgrade(){
 		Update_File S99tailtop
 		rm -f "$SCRIPT_DIR/.usbdisabled"
 	fi
-	if [ ! -f "$SCRIPT_DIR/S95tailtaintdns" ]; then
+	if [ ! -f "$SCRIPT_DIR/S95tailtaintdns" ]
+	then
 		Update_File tailtaintdns
 		Update_File tailtaintdnsd
 		Update_File S95tailtaintdns
@@ -1173,11 +1333,12 @@ Process_Upgrade(){
 		Update_File sitemap.asp
 	fi
 
-	if [ "$(uname -o)" = "ASUSWRT-Merlin" ]; then
-		if grep '.dropdown-content' /tmp/index_style.css | grep -q '{display: block;}'; then
-
+	if [ "$(uname -o)" = "ASUSWRT-Merlin" ]
+	then
+		if grep '.dropdown-content' /tmp/index_style.css | grep -q '{display: block;}'
+		then
 			umount /www/index_style.css 2>/dev/null
-			cp -f /www/index_style.css /tmp/
+			cp -fp /www/index_style.css /tmp/
 
 			echo ".menu_Addons { background: url(ext/shared-jy/addons.png); }" >> /tmp/index_style.css
 
@@ -1193,10 +1354,12 @@ Process_Upgrade(){
 	fi
 }
 
-Shortcut_Script(){
+Shortcut_Script()
+{
 	case $1 in
 		create)
-			if [ -d /opt/bin ] && [ ! -f "/opt/bin/$SCRIPT_NAME_LOWER" ] && [ -f "/jffs/scripts/$SCRIPT_NAME_LOWER" ]; then
+			if [ -d /opt/bin ] && [ ! -f "/opt/bin/$SCRIPT_NAME_LOWER" ] && [ -f "/jffs/scripts/$SCRIPT_NAME_LOWER" ]
+			then
 				ln -s "/jffs/scripts/$SCRIPT_NAME_LOWER" /opt/bin
 				chmod 0755 "/opt/bin/$SCRIPT_NAME_LOWER"
 			fi
@@ -1209,14 +1372,14 @@ Shortcut_Script(){
 	esac
 }
 
-PressEnter(){
-	while true; do
-		printf "Press <Enter> to continue..."
-		read -r key
+PressEnter()
+{
+	while true
+	do
+		printf "Press <Enter> key to continue..."
+		read -rs key
 		case "$key" in
-			*)
-				break
-			;;
+			*) break ;;
 		esac
 	done
 	return 0
@@ -1235,7 +1398,7 @@ Get_JFFS_Usage()
    jffsUsageStr="$(df -kT /jffs | grep -E '.*[[:blank:]]+/jffs$')"
    if [ -z "$jffsMountStr" ] || [ -z "$jffsUsageStr" ]
    then
-       printf "\n${REDct}**ERROR**${CLEARct}\n"
+       printf "\n${REDct}**ERROR**${CLRct}\n"
        printf "JFFS partition is NOT found mounted.\n"
        return 1
    fi
@@ -1257,9 +1420,9 @@ Get_JFFS_Usage()
 
    if echo "$jffsMountStr" | grep -qE "[[:blank:]]+[(]?ro[[:blank:],]"
    then
-       printf "\n${GRNct}${BOLDUNDERLN}Mount Point:${CLEARct}\n"
+       printf "\n${GRNct}${BOLDUNDERLN}Mount Point:${CLRct}\n"
        echo "${jffsMountStr}"
-       printf "\n${REDct}**${YLWct}WARNING${REDct}**${CLEARct}\n"
+       printf "\n${REDct}**${YLWct}WARNING${REDct}**${CLRct}\n"
        printf "JFFS partition appears to be READ-ONLY.\n"
    fi
 }
@@ -1295,7 +1458,8 @@ Get_NVRAM_Usage()
    echo
 }
 
-ScriptHeader(){
+ScriptHeader()
+{
 	clear
 	printf "\\n"
 	printf "${BOLD}######################################################${CLEARFORMAT}\\n"
@@ -1306,7 +1470,7 @@ ScriptHeader(){
 	printf "${BOLD}##   \__ \| (__ | |  | ||  __/| |   | || || | | |   ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##   |___/ \___||_|  |_| \___||_|   |_||_||_| |_|   ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
-	printf "${BOLD}##               %s on %-11s              ##${CLEARFORMAT}\\n" "$SCRIPT_VERSION" "$ROUTER_MODEL"
+	printf "${BOLD}##               %s on %-18s       ##${CLEARFORMAT}\n" "$SCRIPT_VERSION" "$ROUTER_MODEL"
 	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##       https://github.com/jackyaz/scMerlin        ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
@@ -1322,7 +1486,7 @@ MainMenu()
 	local NTP_WATCHDOG_STATUS=""  NTP_READY_CHECK_STATUS=""  TAILTAINT_DNS_STATUS=""
 	isInteractiveMenuMode=true
 
-	printf "WebUI for %s is available at:\\n${SETTING}%s${CLEARFORMAT}\\n\\n" "$SCRIPT_NAME" "$(Get_WebUI_URL)"
+	printf "WebUI for %s is available at:\n${SETTING}%s${CLEARFORMAT}\n\n" "$SCRIPT_NAME" "$(Get_WebUI_URL)"
 
 	##---------- SERVICES ----------##
 	printf "${BOLDUNDERLN}Services${CLEARFORMAT}"
@@ -1394,29 +1558,29 @@ MainMenu()
 	printf "${BOLDUNDERLN}Other${CLEARFORMAT}\\n"
 	if [ "$(NTP_BootWatchdog status)" = "ENABLED" ]
 	then
-		NTP_WATCHDOG_STATUS="${GRNct}ENABLED${CLEARct}"
+		NTP_WATCHDOG_STATUS="${GRNct}ENABLED${CLRct}"
 	else
-		NTP_WATCHDOG_STATUS="${REDct}DISABLED${CLEARct}"
+		NTP_WATCHDOG_STATUS="${REDct}DISABLED${CLRct}"
 	fi
 	printf "ntp.  Toggle NTP boot watchdog script\n      Currently: ${NTP_WATCHDOG_STATUS}\n\n"
 
 	if [ "$(NTP_ReadyCheckOption status)" = "ENABLED" ]
 	then
-		NTP_READY_CHECK_STATUS="${GRNct}ENABLED${CLEARct}"
+		NTP_READY_CHECK_STATUS="${GRNct}ENABLED${CLRct}"
 	else
-		NTP_READY_CHECK_STATUS="${REDct}DISABLED${CLEARct}"
+		NTP_READY_CHECK_STATUS="${REDct}DISABLED${CLRct}"
 	fi
 	if [ "$(nvram get ntp_ready)" -eq 0 ]
 	then
-		NTP_READY_CHECK_STATUS="${NTP_READY_CHECK_STATUS} [${YLWct}*WARNING*${CLEARct}: NTP is ${REDct}NOT${CLEARct} synced]"
+		NTP_READY_CHECK_STATUS="${NTP_READY_CHECK_STATUS} [${YLWct}*WARNING*${CLRct}: NTP is ${REDct}NOT${CLRct} synced]"
 	fi
 	printf "nrc.  Toggle NTP Ready startup check\n      Currently: ${NTP_READY_CHECK_STATUS}\n\n"
 
 	if [ "$(TailTaintDNSmasq status)" = "ENABLED" ]
 	then
-		TAILTAINT_DNS_STATUS="${GRNct}ENABLED${CLEARct}"
+		TAILTAINT_DNS_STATUS="${GRNct}ENABLED${CLRct}"
 	else
-		TAILTAINT_DNS_STATUS="${REDct}DISABLED${CLEARct}"
+		TAILTAINT_DNS_STATUS="${REDct}DISABLED${CLRct}"
 	fi
 	printf "dns.  Toggle dnsmasq tainted watchdog script\n      Currently: ${TAILTAINT_DNS_STATUS}\n\n"
 	printf "u.    Check for updates\\n"
@@ -1922,7 +2086,7 @@ Menu_Startup()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-28] ##
+## Modified by Martinski W. [2025-Feb-11] ##
 ##----------------------------------------##
 Menu_Uninstall()
 {
@@ -1943,44 +2107,48 @@ Menu_Uninstall()
 	if [ -f "$SCRIPT_DIR/sitemap.asp" ]
 	then
 		Get_WebUI_Page "$SCRIPT_DIR/sitemap.asp"
-		if [ -n "$MyPage" ] && [ "$MyPage" != "none" ] && [ -f /tmp/menuTree.js ]
+		if [ -n "$MyWebPage" ] && \
+		   [ "$MyWebPage" != "NONE" ] && \
+		   [ -f "$TEMP_MENU_TREE" ]
 		then
 			resetWebGUI=true
-			sed -i "\\~$MyPage~d" /tmp/menuTree.js
-			rm -f "$SCRIPT_WEBPAGE_DIR/$MyPage"
+			sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
+			rm -f "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
 		fi
 	fi
 	Get_WebUI_Page "$SCRIPT_DIR/scmerlin_www.asp"
-	if [ -n "$MyPage" ] && [ "$MyPage" != "none" ] && [ -f /tmp/menuTree.js ]
+	if [ -n "$MyWebPage" ] && \
+	   [ "$MyWebPage" != "NONE" ] && \
+	   [ -f "$TEMP_MENU_TREE" ]
 	then
 		resetWebGUI=true
-		sed -i "\\~$MyPage~d" /tmp/menuTree.js
-		rm -f "$SCRIPT_WEBPAGE_DIR/$MyPage"
-		rm -f "$SCRIPT_WEBPAGE_DIR/$(echo $MyPage | cut -f1 -d'.').title"
+		sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
+		rm -f "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
+		rm -f "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
 	fi
 
 	## Use the same BEGIN/END insert tags here as those used in the "Mount_WebUI()" function ##
-	if grep -qE "^${BEGIN_InsertTag}$" /tmp/menuTree.js && \
-	   grep -qE "^${ENDIN_InsertTag}$" /tmp/menuTree.js
+	if grep -qE "^${BEGIN_InsertTag}$" "$TEMP_MENU_TREE" && \
+	   grep -qE "^${ENDIN_InsertTag}$" "$TEMP_MENU_TREE"
 	then
 		resetWebGUI=true
-		BEGINnum="$(grep -nE "^${BEGIN_InsertTag}$" /tmp/menuTree.js | awk -F ':' '{print $1}')"
-		ENDINnum="$(grep -nE "^${ENDIN_InsertTag}$" /tmp/menuTree.js | awk -F ':' '{print $1}')"
+		BEGINnum="$(grep -nE "^${BEGIN_InsertTag}$" "$TEMP_MENU_TREE" | awk -F ':' '{print $1}')"
+		ENDINnum="$(grep -nE "^${ENDIN_InsertTag}$" "$TEMP_MENU_TREE" | awk -F ':' '{print $1}')"
 		[ -n "$BEGINnum" ] && [ -n "$ENDINnum" ] && [ "$BEGINnum" -lt "$ENDINnum" ] && \
-		sed -i "${BEGINnum},${ENDINnum}d" /tmp/menuTree.js
+		sed -i "${BEGINnum},${ENDINnum}d" "$TEMP_MENU_TREE"
 	fi
 	## Remove any "old" previous lines left behind ##
-	if grep -qE '^menuName: "Addons",$' /tmp/menuTree.js && \
-	   grep -qE 'tabName: "Help & Support"},$' /tmp/menuTree.js
+	if grep -qE '^menuName: "Addons",$' "$TEMP_MENU_TREE" && \
+	   grep -qE 'tabName: "Help & Support"},$' "$TEMP_MENU_TREE"
 	then
 		resetWebGUI=true
-		BEGINnum="$(grep -nE '^menuName: "Addons",$' /tmp/menuTree.js | awk -F ':' '{print $1}')"
-		ENDINnum="$(grep -nE 'tabName: "Help & Support"},$' /tmp/menuTree.js | awk -F ':' '{print $1}')"
+		BEGINnum="$(grep -nE '^menuName: "Addons",$' "$TEMP_MENU_TREE" | awk -F ':' '{print $1}')"
+		ENDINnum="$(grep -nE 'tabName: "Help & Support"},$' "$TEMP_MENU_TREE" | awk -F ':' '{print $1}')"
 		[ -n "$BEGINnum" ] && [ -n "$ENDINnum" ] && [ "$BEGINnum" -lt "$ENDINnum" ] && \
 		BEGINnum=$((BEGINnum - 2)) && ENDINnum=$((ENDINnum + 3)) && \
-		[ "$(sed -n "${BEGINnum}p" /tmp/menuTree.js)" = "," ] && \
-		[ "$(sed -n "${ENDINnum}p" /tmp/menuTree.js)" = "}" ] && \
-		sed -i "${BEGINnum},${ENDINnum}d" /tmp/menuTree.js
+		[ "$(sed -n "${BEGINnum}p" "$TEMP_MENU_TREE")" = "," ] && \
+		[ "$(sed -n "${ENDINnum}p" "$TEMP_MENU_TREE")" = "}" ] && \
+		sed -i "${BEGINnum},${ENDINnum}d" "$TEMP_MENU_TREE"
 	fi
 
 	if "$resetWebGUI"
@@ -1992,7 +2160,7 @@ Menu_Uninstall()
 		if [ -f /tmp/state.js ] && grep -qE 'function GenerateSiteMap|function AddDropdowns' /tmp/state.js
 		then rm -f /tmp/state.js ; umount /www/state.js 2>/dev/null
 		fi
-		mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
+		mount -o bind "$TEMP_MENU_TREE" /www/require/modules/menuTree.js
 	fi
 	flock -u "$FD"
 	rm -rf "$SCRIPT_WEB_DIR" 2>/dev/null
@@ -2083,8 +2251,10 @@ NTP_Ready()
 }
 
 ### function based on @Adamm00's Skynet USB wait function ###
-Entware_Ready(){
-	if [ ! -f /opt/bin/opkg ]; then
+Entware_Ready()
+{
+	if [ ! -f /opt/bin/opkg ]
+	then
 		Check_Lock
 		sleepcount=1
 		while [ ! -f /opt/bin/opkg ] && [ "$sleepcount" -le 10 ]; do
@@ -2093,7 +2263,7 @@ Entware_Ready(){
 			sleep 10
 		done
 		if [ ! -f /opt/bin/opkg ]; then
-			Print_Output true "Entware not found and is required for $SCRIPT_NAME to run, please resolve" "$CRIT"
+			Print_Output true "Entware NOT found and is required for $SCRIPT_NAME to run, please resolve" "$CRIT"
 			Clear_Lock
 			exit 1
 		else
@@ -2102,9 +2272,9 @@ Entware_Ready(){
 		fi
 	fi
 }
-### ###
 
-Show_About(){
+Show_About()
+{
 	cat << EOF
 About
   $SCRIPT_NAME allows you to easily control the most common
@@ -2121,27 +2291,26 @@ Source code
 EOF
 	printf "\\n"
 }
-### ###
 
 ### function based on @dave14305's FlexQoS show_help function ###
-Show_Help(){
+Show_Help()
+{
 	cat << EOF
 Available commands:
-  $SCRIPT_NAME_LOWER about              explains functionality
-  $SCRIPT_NAME_LOWER update             checks for updates
-  $SCRIPT_NAME_LOWER forceupdate        updates to latest version (force update)
-  $SCRIPT_NAME_LOWER startup force      runs startup actions such as mount WebUI tab
-  $SCRIPT_NAME_LOWER install            installs script
-  $SCRIPT_NAME_LOWER uninstall          uninstalls script
-  $SCRIPT_NAME_LOWER develop            switch to development branch
-  $SCRIPT_NAME_LOWER stable             switch to stable branch
+  $SCRIPT_NAME_LOWER about            explains functionality
+  $SCRIPT_NAME_LOWER update           checks for updates
+  $SCRIPT_NAME_LOWER forceupdate      updates to latest version (force update)
+  $SCRIPT_NAME_LOWER startup force    runs startup actions such as mount WebUI tab
+  $SCRIPT_NAME_LOWER install          installs script
+  $SCRIPT_NAME_LOWER uninstall        uninstalls script
+  $SCRIPT_NAME_LOWER develop          switch to development branch
+  $SCRIPT_NAME_LOWER stable           switch to stable branch
 EOF
-	printf "\\n"
+	printf "\n"
 }
-### ###
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-28] ##
+## Modified by Martinski W. [2025-Feb-11] ##
 ##----------------------------------------##
 if [ $# -eq 0 ] || [ -z "$1" ]
 then
@@ -2153,6 +2322,7 @@ then
 	Auto_Startup create 2>/dev/null
 	Auto_ServiceEvent create 2>/dev/null
 	Process_Upgrade
+	_CheckFor_WebGUI_Page_
 	ScriptHeader
 	MainMenu
 	exit 0
@@ -2313,7 +2483,7 @@ case "$1" in
 		    SCRIPT_BRANCH="develop"
 		else
 		    SCRIPT_BRANCH="master"
-		    printf "\n${REDct}The 'develop' branch is NOT available. Updating from the 'master' branch...${CLEARct}\n"
+		    printf "\n${REDct}The 'develop' branch is NOT available. Updating from the 'master' branch...${CLRct}\n"
 		fi
 		SCRIPT_REPO="https://raw.githubusercontent.com/decoderman/$SCRIPT_NAME/$SCRIPT_BRANCH"
 		Update_Version force
@@ -2327,8 +2497,8 @@ case "$1" in
 	;;
 	*)
 		ScriptHeader
-		Print_Output false "Command not recognised." "$ERR"
-		Print_Output false "For a list of available commands run: $SCRIPT_NAME_LOWER help"
+		Print_Output false "Parameter [$*] is NOT recognised." "$ERR"
+		Print_Output false "For a list of available commands run: $SCRIPT_NAME_LOWER help" "$SETTING"
 		exit 1
 	;;
 esac
