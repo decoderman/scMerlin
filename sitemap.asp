@@ -5,15 +5,21 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="-1">
+
 <link rel="shortcut icon" href="images/favicon.png">
 <link rel="icon" href="images/favicon.png">
+
 <title>SiteMap</title>
+
 <link rel="stylesheet" type="text/css" href="/index_style.css">
 <link rel="stylesheet" type="text/css" href="/form_style.css">
 <style>
 </style>
+
+<!-- For 3006 -->
 <script language="JavaScript" type="text/javascript" src="/js/jquery.js"></script>
 <script language="JavaScript" type="text/javascript" src="/js/httpApi.js"></script>
+<!-- Scripts used on 3004 -->
 <script language="JavaScript" type="text/javascript" src="/state.js"></script>
 <script language="JavaScript" type="text/javascript" src="/general.js"></script>
 <script language="JavaScript" type="text/javascript" src="/popup.js"></script>
@@ -23,31 +29,57 @@
 <script language="JavaScript" type="text/javascript" src="/tmmenu.js"></script>
 <script language="JavaScript" type="text/javascript" src="/client_function.js"></script>
 <script language="JavaScript" type="text/javascript" src="/validator.js"></script>
-<script>
 
-/**----------------------------------------**/
-/** Modified by Martinski W. [2024-Sep-07] **/
-/**----------------------------------------**/
-
-function SetCurrentPage()
-{
-	document.form.next_page.value = window.location.pathname.substring(1);
-	document.form.current_page.value = window.location.pathname.substring(1);
+<script type="text/javascript">
+function SetCurrentPage(){
+    document.form.next_page.value = window.location.pathname.substring(1);
+    document.form.current_page.value = window.location.pathname.substring(1);
 }
 
 function initial(){
-	SetCurrentPage();
-	show_menu();
-	LoadSiteMap();
-	document.getElementById('sitemap_showurls').addEventListener('click',LoadSiteMap);
+    SetCurrentPage();
+    if (typeof show_menu === "function") {
+        show_menu();
+    }
+    LoadSiteMap();
+
+    var checkbox = document.getElementById('sitemap_showurls');
+    if (checkbox) {
+        checkbox.addEventListener('click', LoadSiteMap);
+    }
 }
 
 function LoadSiteMap(){
-	if(myMenu.length == 0){
-		setTimeout(LoadSiteMap,1000);
-		return;
-	}
-	document.getElementById('sitemapcontent').innerHTML = GenerateSiteMap(document.getElementById('sitemap_showurls').checked);
+    // Check the old 3004 approach: a global myMenu
+    if (typeof myMenu !== "undefined" && myMenu && myMenu.length > 0) {
+        // myMenu is already populated (3004 style)
+    }
+    else {
+        // For 3006: check session-based data
+        if (typeof Session !== "undefined") {
+            var ml = Session.get("menuList.");
+            var me = Session.get("menuExclude");
+            if (ml && ml.length > 0 && me) {
+                // Populate both myMenu and menuList for GenerateSiteMap
+                myMenu = ml;
+                window.menuList = ml;
+                window.menuExclude = me;
+            }
+        }
+    }
+
+    // If still no menu data, retry
+    if (!myMenu || myMenu.length === 0) {
+        setTimeout(LoadSiteMap, 1000);
+        return;
+    }
+
+    var showUrls = document.getElementById('sitemap_showurls').checked;
+    var contentDiv = document.getElementById('sitemapcontent');
+    if (!contentDiv) return;
+
+    // GenerateSiteMap is defined in state.js/tmmenu.js
+    contentDiv.innerHTML = GenerateSiteMap(showUrls);
 }
 </script>
 </head>
@@ -113,5 +145,7 @@ function LoadSiteMap(){
 </form>
 <div id="footer">
 </div>
+</body>
+</html>
 </body>
 </html>
