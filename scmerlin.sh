@@ -11,7 +11,7 @@
 ##       https://github.com/jackyaz/scMerlin        ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Feb-11
+# Last Modified: 2025-Mar-01
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -27,8 +27,8 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.9"
-readonly SCRIPT_VERSION="v2.5.9"
+readonly SCM_VERSION="v2.5.10"
+readonly SCRIPT_VERSION="v2.5.10"
 SCRIPT_BRANCH="master"
 SCRIPT_REPO="https://raw.githubusercontent.com/decoderman/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -80,9 +80,14 @@ readonly BOLDUNDERLN="\e[1;4m"
 ## Added by Martinski W. [2025-Feb-11] ##
 ##-------------------------------------##
 readonly scriptVersRegExp="v[0-9]{1,2}([.][0-9]{1,2})([.][0-9]{1,2})"
+readonly webPageMenuAddons="menuName: \"Addons\","
+readonly webPageHelpSupprt="tabName: \"Help & Support\"},"
 readonly webPageFileRegExp="user([1-9]|[1-2][0-9])[.]asp"
-readonly webPageSiteMpRegExp="\{url: \"$webPageFileRegExp\", tabName: \"Sitemap\"\}"
-readonly webPageScriptRegExp="\{url: \"$webPageFileRegExp\", tabName: \"$SCRIPT_NAME\"\}"
+readonly webPageLineTabExp="\{url: \"$webPageFileRegExp\", tabName: "
+readonly webPageSiteMpRegExp="${webPageLineTabExp}\"Sitemap\"\},"
+readonly webPageScriptRegExp="${webPageLineTabExp}\"$SCRIPT_NAME\"\},"
+readonly BEGIN_MenuAddOnsTag="/\*\*BEGIN:_AddOns_\*\*/"
+readonly ENDIN_MenuAddOnsTag="/\*\*ENDIN:_AddOns_\*\*/"
 
 ### End of output format variables ###
 
@@ -92,8 +97,6 @@ export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jun-03] ##
 ##----------------------------------------##
-readonly BEGIN_InsertTag="/\*\*BEGIN:scMerlin\*\*/"
-readonly ENDIN_InsertTag="/\*\*END:scMerlin\*\*/"
 readonly SUPPORTstr="$(nvram get rc_support)"
 
 Band_24G_Support=false
@@ -102,22 +105,45 @@ Band_5G_2_support=false
 Band_6G_1_Support=false
 Band_6G_2_Support=false
 
-if echo "$SUPPORTstr" | grep -qw '2.4G'
+if echo "$SUPPORTstr" | grep -qo '2.4G '
 then Band_24G_Support=true ; fi
 
-if echo "$SUPPORTstr" | grep -qw '5G'
+if echo "$SUPPORTstr" | grep -qo '5G '
 then Band_5G_1_Support=true ; fi
 
 if echo "$SUPPORTstr" | grep -qw 'wifi6e'
 then Band_6G_1_Support=true ; fi
 
 ##-------------------------------------##
-## Added by Martinski W. [2024-Jun-04] ##
+## Added by Martinski W. [2025-Feb-15] ##
 ##-------------------------------------##
+GetWiFiVirtualInterfaceName()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then echo "" ; return 1 ; fi
+   nvram show 2>/dev/null | grep -E -m1 "^wl[0-3]_ifname=${1}" | awk -F '_' '{print $1}'
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-15] ##
+##----------------------------------------##
 _GetWiFiBandsSupported_()
 {
    local wifiIFNameList  wifiIFName  wifiBandInfo  wifiBandName
-   local wifi5GHzCount=0  wifi6GHzCount=0
+   local wifi5GHzCount=0  wifi6GHzCount=0  wlvifName  wifiChnList
+
+   case "$ROUTER_MODEL" in
+       "GT-BE98" | "GT-AXE16000" | \
+       "GT-AX11000" | "GT-AX11000_PRO" | "XT12")
+           Band_5G_2_Support=true
+           ;;
+       "GT-BE98" | "GT-BE98_PRO" | "RT-BE96U" | \
+       "GT-AXE16000" | "GT-AXE11000")
+           Band_6G_1_Support=true
+           ;;
+       "GT-BE98_PRO")
+           Band_6G_2_Support=true
+           ;;
+   esac
 
    wifiIFNameList="$(nvram get wl_ifnames)"
    if [ -z "$wifiIFNameList" ]
@@ -131,7 +157,22 @@ _GetWiFiBandsSupported_()
        wifiBandInfo="$(wl -i "$wifiIFName" status 2>/dev/null | grep 'Chanspec:')"
        if [ -z "$wifiBandInfo" ]
        then
-           printf "\n**ERROR**: Could not find 'Chanspec' for WiFi Interface [$wifiIFName].\n"
+           if [ "$(wl -i "$wifiIFName" bss 2>/dev/null)" = "up" ]
+           then
+               printf "\n**ERROR**: Could not find 'Chanspec' for WiFi Interface [$wifiIFName].\n"
+           fi
+           wlvifName="$(GetWiFiVirtualInterfaceName "$wifiIFName")"
+           if [ -n "wlvifName" ]
+           then
+               wifiChnList="$(nvram get ${wlvifName}_chlist)"
+               if [ "$wifiChnList" = "1 2 3 4 5 6 7 8 9 10 11" ]
+               then Band_24G_Support=true
+               elif echo "$wifiChnList" | grep -qE "^36 40 44 48"
+               then Band_5G_1_Support=true
+               elif echo "$wifiChnList" | grep -qE "^149 153 157 161"
+               then Band_5G_2_Support=true
+               fi
+           fi
            continue
        fi
        wifiBandName="$(echo "$wifiBandInfo" | awk -F ' ' '{print $2}')"
@@ -156,53 +197,46 @@ _GetWiFiBandsSupported_()
 _GetWiFiBandsSupported_
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-07] ##
+## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
 GetIFaceName()
 {
-    if [ $# -eq 0 ] || [ -z "$1" ] ; then echo "" ; return 1 ; fi
+    if [ $# -eq 0 ] || [ -z "$1" ]
+    then echo ; return 1 ; fi
 
     theIFnamePrefix=""
     case "$1" in
         "2.4GHz")
-            if "$Band_24G_Support"
-            then
-                if [ "$ROUTER_MODEL" = "GT-BE98" ] || \
-                   [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
-                   [ "$ROUTER_MODEL" = "GT-AXE16000" ]
-                then theIFnamePrefix="wl3"
-                else theIFnamePrefix="wl0"
-                fi
+            if [ "$ROUTER_MODEL" = "GT-BE98" ] || \
+               [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
+               [ "$ROUTER_MODEL" = "GT-AXE16000" ]
+            then theIFnamePrefix="wl3"
+            elif "$Band_24G_Support"
+            then theIFnamePrefix="wl0"
             fi
             ;;
         "5GHz_1")
-            if "$Band_5G_1_Support"
-            then
-                if [ "$ROUTER_MODEL" = "GT-BE98" ] || \
-                   [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
-                   [ "$ROUTER_MODEL" = "GT-AXE16000" ]
-                then theIFnamePrefix="wl0"
-                else theIFnamePrefix="wl1"
-                fi
+            if [ "$ROUTER_MODEL" = "GT-BE98" ] || \
+               [ "$ROUTER_MODEL" = "GT-BE98_PRO" ] || \
+               [ "$ROUTER_MODEL" = "GT-AXE16000" ]
+            then theIFnamePrefix="wl0"
+            elif "$Band_5G_1_Support"
+            then theIFnamePrefix="wl1"
             fi
             ;;
         "5GHz_2")
-            if "$Band_5G_2_support"
-            then
-                if [ "$ROUTER_MODEL" = "GT-BE98" ] || \
-                   [ "$ROUTER_MODEL" = "GT-AXE16000" ]
-                then theIFnamePrefix="wl1"
-                else theIFnamePrefix="wl2"
-                fi
+            if [ "$ROUTER_MODEL" = "GT-BE98" ] || \
+               [ "$ROUTER_MODEL" = "GT-AXE16000" ]
+            then theIFnamePrefix="wl1"
+            elif "$Band_5G_2_support"
+            then theIFnamePrefix="wl2"
             fi
             ;;
         "6GHz_1")
-            if "$Band_6G_1_Support"
-            then
-                if [ "$ROUTER_MODEL" = "GT-BE98_PRO" ]
-                then theIFnamePrefix="wl1"
-                else theIFnamePrefix="wl2"
-                fi
+            if [ "$ROUTER_MODEL" = "GT-BE98_PRO" ]
+            then theIFnamePrefix="wl1"
+            elif "$Band_6G_1_Support"
+            then theIFnamePrefix="wl2"
             fi
             ;;
         "6GHz_2")
@@ -217,15 +251,46 @@ GetIFaceName()
     fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Jun-02] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-15] ##
+##----------------------------------------##
 GetTemperatureValue()
 {
-    theIFname="$(GetIFaceName "$1")"
-    if [ -z "$theIFname" ]
-    then echo "[N/A]"
-    else echo "$(wl -i "$theIFname" phy_tempsense | awk '{print $1/2+20}')"
+   local theIFname  theTemprtr  wifiRadioState=""
+   theIFname="$(GetIFaceName "$1")"
+   if [ -z "$theIFname" ]
+   then
+       echo "DISABLED"
+   else
+       theTemprtr="$(wl -i "$theIFname" phy_tempsense 2>/dev/null)"
+       if [ -z "$theTemprtr" ]
+       then
+           wlvifName="$(GetWiFiVirtualInterfaceName "$theIFname")"
+           [ -n "wlvifName" ] && \
+           wifiRadioState="$(nvram get ${wlvifName}_radio)"
+           if [ "$wifiRadioState" = "0" ]
+           then echo "[WiFi Radio for '${theIFname}' is DISABLED]"
+           elif [ "$(wl -i "$theIFname" bss 2>/dev/null)" = "down" ]
+           then echo "[Base Station for '${theIFname}' is DISABLED]"
+           else echo "[WiFi Interface '${theIFname}' is DISABLED]"
+           fi
+       else
+           echo "$theTemprtr" | awk -F ' ' '{print $1/2+20}'
+       fi
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Feb-15] ##
+##-------------------------------------##
+GetTemperatureString()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ]
+    then printf "${REDct}*Unknown*${CLRct}"
+    fi
+    if ! echo "$1" | grep -qE "^[0-9].*"
+    then printf "${REDct}%s${CLRct}" "$theTemptrVal"
+    else printf "${GRNct}%s°C${CLRct}" "$theTemptrVal"
     fi
 }
 
@@ -758,7 +823,7 @@ _Check_WebGUI_Page_Exists_()
    then webPageLineRegExp="$webPageSiteMpRegExp"
    else webPageLineRegExp="$webPageScriptRegExp"
    fi
-   webPageStr="$(grep -E -m1 "$webPageLineRegExp" "$TEMP_MENU_TREE")"
+   webPageStr="$(grep -E -m1 "^$webPageLineRegExp" "$TEMP_MENU_TREE")"
    if [ -n "$webPageStr" ]
    then
        webPageFile="$(echo "$webPageStr" | grep -owE "$webPageFileRegExp" | head -n1)"
@@ -837,9 +902,32 @@ Get_WebUI_URL()
 	fi
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Feb-16] ##
+##-------------------------------------##
+_CreateMenuAddOnsSection_()
+{
+   if grep -qE "^${webPageMenuAddons}$" "$TEMP_MENU_TREE" && \
+      grep -qE "${webPageHelpSupprt}$" "$TEMP_MENU_TREE"
+   then return 0 ; fi
+
+   lineinsBefore="$(($(grep -n "^exclude:" "$TEMP_MENU_TREE" | cut -f1 -d':') - 1))"
+
+   sed -i "$lineinsBefore""i\
+${BEGIN_MenuAddOnsTag}\n\
+,\n{\n\
+${webPageMenuAddons}\n\
+index: \"menu_Addons\",\n\
+tab: [\n\
+{url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm')\", ${webPageHelpSupprt}\n\
+{url: \"NULL\", tabName: \"__INHERIT__\"}\n\
+]\n}\n\
+${ENDIN_MenuAddOnsTag}" "$TEMP_MENU_TREE"
+}
+
 ### locking mechanism code credit to Martineau (@MartineauUK) ###
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-11] ##
+## Modified by Martinski W. [2025-Feb-16] ##
 ##----------------------------------------##
 Mount_WebUI()
 {
@@ -895,21 +983,7 @@ Mount_WebUI()
 		fi
 		sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
 
-		## Use the same BEGIN/END insert tags here as those used in the "Menu_Uninstall()" function ##
-		if ! grep -qE '^menuName: "Addons"' "$TEMP_MENU_TREE"
-		then
-			lineinsbefore="$(($(grep -n "^exclude:" "$TEMP_MENU_TREE" | cut -f1 -d':') - 1))"
-			sed -i "$lineinsbefore""i\
-${BEGIN_InsertTag}\n\
-,\n{\n\
-menuName: \"Addons\",\n\
-index: \"menu_Addons\",\n\
-tab: [\n\
-{url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm')\", tabName: \"Help & Support\"},\n\
-{url: \"NULL\", tabName: \"__INHERIT__\"}\n\
-]\n}\n\
-${ENDIN_InsertTag}" "$TEMP_MENU_TREE"
-		fi
+		_CreateMenuAddOnsSection_
 
 		sed -i "/url: \"javascript:var helpwindow=window.open('\/ext\/shared-jy\/redirect.htm'/i {url: \"$MyWebPage\", tabName: \"$SCRIPT_NAME\"}," "$TEMP_MENU_TREE"
 		realpage="$MyWebPage"
@@ -1470,7 +1544,7 @@ ScriptHeader()
 	printf "${BOLD}##   \__ \| (__ | |  | ||  __/| |   | || || | | |   ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##   |___/ \___||_|  |_| \___||_|   |_||_||_| |_|   ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
-	printf "${BOLD}##               %s on %-18s       ##${CLEARFORMAT}\n" "$SCRIPT_VERSION" "$ROUTER_MODEL"
+	printf "${BOLD}##              %9s on %-18s     ##${CLEARFORMAT}\n" "$SCRIPT_VERSION" "$ROUTER_MODEL"
 	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##       https://github.com/jackyaz/scMerlin        ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
@@ -1839,24 +1913,28 @@ MainMenu()
 			;;
 			t)
 				ScriptHeader
-				printf "\n${GRNct}${BOLDUNDERLN}Temperatures${CLEARFORMAT}\n\n"
+				printf "\n${GRNct}${BOLDUNDERLN}Temperatures${CLRct}\n\n"
 				if [ -f /sys/class/thermal/thermal_zone0/temp ]
 				then
-					printf "CPU:\t %s°C\n" "$(awk '{print int($1/1000)}' /sys/class/thermal/thermal_zone0/temp)"
+					printf "CPU:\t ${GRNct}%s°C${CLRct}\n" "$(awk '{print int($1/1000)}' /sys/class/thermal/thermal_zone0/temp)"
 				elif [ -f /proc/dmu/temperature ]
 				then
-					printf "CPU:\t %s\n" "$(cut -f2 -d':' /proc/dmu/temperature | awk '{$1=$1;print}' | sed 's/..$/°C/')"
+					printf "CPU:\t ${GRNct}%s${CLRct}\n" "$(cut -f2 -d':' /proc/dmu/temperature | awk '{$1=$1;print}' | sed 's/..$/°C/')"
 				else
-					printf "CPU:\t [N/A]\n"
+					printf "CPU:\t ${REDct}[N/A]${CLRct}\n"
 				fi
 
 				##----------------------------------------##
-				## Modified by Martinski W. [2024-Jun-01] ##
+				## Modified by Martinski W. [2025-Feb-15] ##
 				##----------------------------------------##
-				theTemptrVal="$(GetTemperatureValue "2.4GHz")"
-				if [ -n "$theTemptrVal" ] ; then printf "2.4 GHz: %s°C\n" "$theTemptrVal" ; fi
+				if "$Band_24G_Support"
+				then
+					theTemptrVal="$(GetTemperatureValue "2.4GHz")"
+					printf "2.4 GHz: %s\n" "$(GetTemperatureString "$theTemptrVal")"
+				fi
 
-				if [ "$ROUTER_MODEL" = "RT-AC87U" ] || [ "$ROUTER_MODEL" = "RT-AC87R" ]; then
+				if [ "$ROUTER_MODEL" = "RT-AC87U" ] || [ "$ROUTER_MODEL" = "RT-AC87R" ]
+				then
 					printf "5 GHz:   %s°C\n" "$(qcsapi_sockrpc get_temperature | awk 'FNR == 2 {print $3}')"
 					echo ; PressEnter
 					break
@@ -1865,27 +1943,27 @@ MainMenu()
 				if "$Band_5G_2_support"
 				then
 					theTemptrVal="$(GetTemperatureValue "5GHz_1")"
-					if [ -n "$theTemptrVal" ] ; then printf "5 GHz-1: %s°C\n" "$theTemptrVal" ; fi
+					printf "5 GHz-1: %s\n" "$(GetTemperatureString "$theTemptrVal")"
 
 					theTemptrVal="$(GetTemperatureValue "5GHz_2")"
-					if [ -n "$theTemptrVal" ] ; then printf "5 GHz-2: %s°C\n" "$theTemptrVal" ; fi
+					printf "5 GHz-2: %s\n" "$(GetTemperatureString "$theTemptrVal")"
 				elif "$Band_5G_1_Support"
 				then
 					theTemptrVal="$(GetTemperatureValue "5GHz_1")"
-					if [ -n "$theTemptrVal" ] ; then printf "5 GHz:   %s°C\n" "$theTemptrVal" ; fi
+					printf "5 GHz:   %s\n" "$(GetTemperatureString "$theTemptrVal")"
 				fi
 
 				if "$Band_6G_2_Support"
 				then
 					theTemptrVal="$(GetTemperatureValue "6GHz_1")"
-					if [ -n "$theTemptrVal" ] ; then printf "6 GHz-1: %s°C\n" "$theTemptrVal" ; fi
+					printf "6 GHz-1: %s\n" "$(GetTemperatureString "$theTemptrVal")"
 
 					theTemptrVal="$(GetTemperatureValue "6GHz_2")"
-					if [ -n "$theTemptrVal" ] ; then printf "6 GHz-2: %s°C\n" "$theTemptrVal" ; fi
+					printf "6 GHz-2: %s\n" "$(GetTemperatureString "$theTemptrVal")"
 				elif "$Band_6G_1_Support"
 				then
 					theTemptrVal="$(GetTemperatureValue "6GHz_1")"
-					if [ -n "$theTemptrVal" ] ; then printf "6 GHz:   %s°C\n" "$theTemptrVal" ; fi
+					printf "6 GHz:   %s\n" "$(GetTemperatureString "$theTemptrVal")"
 				fi
 				echo ; PressEnter
 				break
@@ -2017,15 +2095,20 @@ Check_Requirements(){
 	fi
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-15] ##
+##----------------------------------------##
 Menu_Install()
 {
-	Print_Output true "Welcome to $SCRIPT_NAME $SCRIPT_VERSION, a script by JackYaz"
+	ScriptHeader
+	Print_Output true "Welcome to $SCRIPT_NAME $SCRIPT_VERSION, a script by JackYaz" "$PASS"
 	sleep 1
 
-	Print_Output false "Checking your router meets the requirements for $SCRIPT_NAME"
+	Print_Output true "Checking if your router meets the requirements for $SCRIPT_NAME" "$PASS"
 
-	if ! Check_Requirements; then
-		Print_Output false "Requirements for $SCRIPT_NAME not met, please see above for the reason(s)" "$CRIT"
+	if ! Check_Requirements
+	then
+		Print_Output true "Requirements for $SCRIPT_NAME not met, please see above for the reason(s)" "$CRIT"
 		PressEnter
 		Clear_Lock
 		rm -f "/jffs/scripts/$SCRIPT_NAME_LOWER" 2>/dev/null
@@ -2085,8 +2168,60 @@ Menu_Startup()
 	Clear_Lock
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Mar-01] ##
+##-------------------------------------##
+_RemoveMenuAddOnsSection_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] || \
+      ! echo "$1" | grep -qE "^[1-9][0-9]*$" || \
+      ! echo "$2" | grep -qE "^[1-9][0-9]*$" || \
+      [ "$1" -ge "$2" ]
+   then return 1 ; fi
+   local BEGINnum="$1"  ENDINnum="$2"
+
+   if [ -n "$(sed -E "${BEGINnum},${ENDINnum}!d;/${webPageLineTabExp}/!d" "$TEMP_MENU_TREE")" ]
+   then return 1
+   fi
+   sed -i "${BEGINnum},${ENDINnum}d" "$TEMP_MENU_TREE"
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Mar-01] ##
+##-------------------------------------##
+_FindandRemoveMenuAddOnsSection_()
+{
+   local BEGINnum  ENDINnum  retCode=1
+
+   if grep -qE "^${BEGIN_MenuAddOnsTag}$" "$TEMP_MENU_TREE" && \
+      grep -qE "^${ENDIN_MenuAddOnsTag}$" "$TEMP_MENU_TREE"
+   then
+       BEGINnum="$(grep -nE "^${BEGIN_MenuAddOnsTag}$" "$TEMP_MENU_TREE" | awk -F ':' '{print $1}')"
+       ENDINnum="$(grep -nE "^${ENDIN_MenuAddOnsTag}$" "$TEMP_MENU_TREE" | awk -F ':' '{print $1}')"
+       _RemoveMenuAddOnsSection_ "$BEGINnum" "$ENDINnum" && retCode=0
+   fi
+
+   if grep -qE "^${webPageMenuAddons}$" "$TEMP_MENU_TREE" && \
+      grep -qE "${webPageHelpSupprt}$" "$TEMP_MENU_TREE"
+   then
+       BEGINnum="$(grep -nE "^${webPageMenuAddons}$" "$TEMP_MENU_TREE" | awk -F ':' '{print $1}')"
+       ENDINnum="$(grep -nE "${webPageHelpSupprt}$" "$TEMP_MENU_TREE" | awk -F ':' '{print $1}')"
+       if [ -n "$BEGINnum" ] && [ -n "$ENDINnum" ] && [ "$BEGINnum" -lt "$ENDINnum" ]
+       then
+           BEGINnum="$((BEGINnum - 2))" ; ENDINnum="$((ENDINnum + 3))"
+           if [ "$(sed -n "${BEGINnum}p" "$TEMP_MENU_TREE")" = "," ] && \
+              [ "$(sed -n "${ENDINnum}p" "$TEMP_MENU_TREE")" = "}" ]
+           then
+               _RemoveMenuAddOnsSection_ "$BEGINnum" "$ENDINnum" && retCode=0
+           fi
+       fi
+   fi
+   return "$retCode"
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-11] ##
+## Modified by Martinski W. [2025-Mar-01] ##
 ##----------------------------------------##
 Menu_Uninstall()
 {
@@ -2103,7 +2238,8 @@ Menu_Uninstall()
 	eval exec "$FD>$LOCKFILE"
 	flock -x "$FD"
 
-	resetWebGUI=false
+	local doResetWebGUI=false  doResetStyle=false
+
 	if [ -f "$SCRIPT_DIR/sitemap.asp" ]
 	then
 		Get_WebUI_Page "$SCRIPT_DIR/sitemap.asp"
@@ -2111,7 +2247,7 @@ Menu_Uninstall()
 		   [ "$MyWebPage" != "NONE" ] && \
 		   [ -f "$TEMP_MENU_TREE" ]
 		then
-			resetWebGUI=true
+			doResetWebGUI=true
 			sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
 			rm -f "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
 		fi
@@ -2121,46 +2257,30 @@ Menu_Uninstall()
 	   [ "$MyWebPage" != "NONE" ] && \
 	   [ -f "$TEMP_MENU_TREE" ]
 	then
-		resetWebGUI=true
+		doResetWebGUI=true
 		sed -i "\\~$MyWebPage~d" "$TEMP_MENU_TREE"
 		rm -f "$SCRIPT_WEBPAGE_DIR/$MyWebPage"
 		rm -f "$SCRIPT_WEBPAGE_DIR/$(echo "$MyWebPage" | cut -f1 -d'.').title"
 	fi
 
-	## Use the same BEGIN/END insert tags here as those used in the "Mount_WebUI()" function ##
-	if grep -qE "^${BEGIN_InsertTag}$" "$TEMP_MENU_TREE" && \
-	   grep -qE "^${ENDIN_InsertTag}$" "$TEMP_MENU_TREE"
-	then
-		resetWebGUI=true
-		BEGINnum="$(grep -nE "^${BEGIN_InsertTag}$" "$TEMP_MENU_TREE" | awk -F ':' '{print $1}')"
-		ENDINnum="$(grep -nE "^${ENDIN_InsertTag}$" "$TEMP_MENU_TREE" | awk -F ':' '{print $1}')"
-		[ -n "$BEGINnum" ] && [ -n "$ENDINnum" ] && [ "$BEGINnum" -lt "$ENDINnum" ] && \
-		sed -i "${BEGINnum},${ENDINnum}d" "$TEMP_MENU_TREE"
-	fi
-	## Remove any "old" previous lines left behind ##
-	if grep -qE '^menuName: "Addons",$' "$TEMP_MENU_TREE" && \
-	   grep -qE 'tabName: "Help & Support"},$' "$TEMP_MENU_TREE"
-	then
-		resetWebGUI=true
-		BEGINnum="$(grep -nE '^menuName: "Addons",$' "$TEMP_MENU_TREE" | awk -F ':' '{print $1}')"
-		ENDINnum="$(grep -nE 'tabName: "Help & Support"},$' "$TEMP_MENU_TREE" | awk -F ':' '{print $1}')"
-		[ -n "$BEGINnum" ] && [ -n "$ENDINnum" ] && [ "$BEGINnum" -lt "$ENDINnum" ] && \
-		BEGINnum=$((BEGINnum - 2)) && ENDINnum=$((ENDINnum + 3)) && \
-		[ "$(sed -n "${BEGINnum}p" "$TEMP_MENU_TREE")" = "," ] && \
-		[ "$(sed -n "${ENDINnum}p" "$TEMP_MENU_TREE")" = "}" ] && \
-		sed -i "${BEGINnum},${ENDINnum}d" "$TEMP_MENU_TREE"
-	fi
+	_FindandRemoveMenuAddOnsSection_ && doResetStyle=true
 
-	if "$resetWebGUI"
+	if "$doResetWebGUI"
 	then
 		umount /www/require/modules/menuTree.js 2>/dev/null
-		if [ -f /tmp/index_style.css ] && grep -qF '.menu_Addons { background:' /tmp/index_style.css
-		then rm -f /tmp/index_style.css ; umount /www/index_style.css 2>/dev/null
-		fi
-		if [ -f /tmp/state.js ] && grep -qE 'function GenerateSiteMap|function AddDropdowns' /tmp/state.js
-		then rm -f /tmp/state.js ; umount /www/state.js 2>/dev/null
-		fi
 		mount -o bind "$TEMP_MENU_TREE" /www/require/modules/menuTree.js
+		if "$doResetStyle" && [ -f /tmp/index_style.css ] && \
+		   grep -qF '.menu_Addons { background:' /tmp/index_style.css
+		then
+			rm -f /tmp/index_style.css
+			umount /www/index_style.css 2>/dev/null
+		fi
+		if [ -f /tmp/state.js ] && \
+		   grep -qE 'function GenerateSiteMap|function AddDropdowns' /tmp/state.js
+		then
+			rm -f /tmp/state.js
+			umount /www/state.js 2>/dev/null
+		fi
 	fi
 	flock -u "$FD"
 	rm -rf "$SCRIPT_WEB_DIR" 2>/dev/null
@@ -2199,7 +2319,8 @@ WAN_IsConnected()
 ##----------------------------------------##
 NTP_Ready()
 {
-	local ntpWaitSecs  NTP_READY_CHECK_STATUS
+	local theSleepDelay=15  ntpMaxWaitSecs=600  ntpWaitSecs
+	local NTP_READY_CHECK_STATUS
 
 	NTP_READY_CHECK_STATUS="$(NTP_ReadyCheckOption status)"
 
@@ -2229,17 +2350,18 @@ NTP_Ready()
 		Print_Output true "Waiting for NTP to sync..." "$WARN"
 
 		ntpWaitSecs=0
-		while [ "$(nvram get ntp_ready)" -eq 0 ] && [ "$ntpWaitSecs" -lt 600 ]
+		while [ "$(nvram get ntp_ready)" -eq 0 ] && [ "$ntpWaitSecs" -lt "$ntpMaxWaitSecs" ]
 		do
-			if [ "$ntpWaitSecs" -gt 0 ] && [ "$((ntpWaitSecs % 20))" -eq 0 ]
+			if [ "$ntpWaitSecs" -gt 0 ] && [ "$((ntpWaitSecs % 30))" -eq 0 ]
 			then
 			    Print_Output true "Waiting for NTP to sync [$ntpWaitSecs secs]..." "$WARN"
 			fi
-			sleep 5
-			ntpWaitSecs="$((ntpWaitSecs + 5))"
+			sleep "$theSleepDelay"
+			ntpWaitSecs="$((ntpWaitSecs + theSleepDelay))"
 		done
 
-		if [ "$ntpWaitSecs" -ge 600 ]; then
+		if [ "$ntpWaitSecs" -ge "$ntpMaxWaitSecs" ]
+		then
 			Print_Output true "NTP failed to sync after 10 minutes. Please resolve!" "$CRIT"
 			Clear_Lock
 			exit 1
@@ -2251,19 +2373,30 @@ NTP_Ready()
 }
 
 ### function based on @Adamm00's Skynet USB wait function ###
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-28] ##
+##----------------------------------------##
 Entware_Ready()
 {
+	local theSleepDelay=5  maxSleepTimer=120  sleepTimerSecs
+
 	if [ ! -f /opt/bin/opkg ]
 	then
 		Check_Lock
-		sleepcount=1
-		while [ ! -f /opt/bin/opkg ] && [ "$sleepcount" -le 10 ]; do
-			Print_Output true "Entware not found, sleeping for 10s (attempt $sleepcount of 10)" "$ERR"
-			sleepcount="$((sleepcount + 1))"
-			sleep 10
+		sleepTimerSecs=0
+
+		while [ ! -f /opt/bin/opkg ] && [ "$sleepTimerSecs" -lt "$maxSleepTimer" ]
+		do
+			if [ "$((sleepTimerSecs % 10))" -eq 0 ]
+			then
+			    Print_Output true "Entware NOT found, sleeping for $theSleepDelay secs [$sleepTimerSecs secs]..." "$WARN"
+			fi
+			sleep "$theSleepDelay"
+			sleepTimerSecs="$((sleepTimerSecs + theSleepDelay))"
 		done
-		if [ ! -f /opt/bin/opkg ]; then
-			Print_Output true "Entware NOT found and is required for $SCRIPT_NAME to run, please resolve" "$CRIT"
+		if [ ! -f /opt/bin/opkg ]
+		then
+			Print_Output true "Entware NOT found and is required for $SCRIPT_NAME to run, please resolve!" "$CRIT"
 			Clear_Lock
 			exit 1
 		else
@@ -2281,15 +2414,18 @@ About
   services/scripts on your router. scMerlin also augments your
   router's WebUI with a Sitemap and dynamic submenus for the
   main left menu of Asuswrt-Merlin.
+
 License
   $SCRIPT_NAME is free to use under the GNU General Public License
   version 3 (GPL-3.0) https://opensource.org/licenses/GPL-3.0
+
 Help & Support
   https://www.snbforums.com/forums/asuswrt-merlin-addons.60/?prefix_id=23
+
 Source code
   https://github.com/jackyaz/$SCRIPT_NAME
 EOF
-	printf "\\n"
+	printf "\n"
 }
 
 ### function based on @dave14305's FlexQoS show_help function ###
