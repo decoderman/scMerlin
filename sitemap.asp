@@ -46,37 +46,36 @@ function initial()
     { checkbox.addEventListener('click', LoadSiteMap); }
 }
 
-function LoadSiteMap()
-{
-    // Check the old 3004 approach: a global myMenu //
-    if (typeof myMenu !== "undefined" && myMenu && myMenu.length > 0)
-    {   // myMenu is already populated (3004 style) //
+function LoadSiteMap() {
+  if (
+    typeof menuList === 'undefined'     ||
+    !Array.isArray(menuList)            ||
+    !window.menuExclude                 ||
+    !Array.isArray(window.menuExclude.tabs)
+  ) {
+    let stored = localStorage.getItem('stateEnhanced_menuListCache');
+    if (stored) {
+      try {
+        let obj = JSON.parse(stored);
+        window.menuList     = obj.menuList;
+        window.menuExclude  = obj.menuExclude;
+      } catch(e){}
     }
-    else
-    {   // For 3006: check session-based data //
-        if (typeof Session !== "undefined")
-        {
-            var menuLst = Session.get("menuList.");
-            var menuExc = Session.get("menuExclude");
-            if (menuLst && menuLst.length > 0 && menuExc)
-            {
-                myMenu = menuLst;
-                window.menuList = menuLst;
-                window.menuExclude = menuExc;
-            }
-        }
-    }
+  }
 
-    // If still no menu data, retry //
-    if (!myMenu || myMenu.length === 0)
-    { setTimeout(LoadSiteMap, 1000); return; }
+  if (
+    typeof menuList === 'undefined'    ||
+    !Array.isArray(menuList)           ||
+    !window.menuExclude                ||
+    !Array.isArray(window.menuExclude.tabs)
+  ) {
+    return setTimeout(LoadSiteMap, 500);
+  }
 
-    var showUrls = document.getElementById('sitemap_showurls').checked;
-    var contentDiv = document.getElementById('sitemapcontent');
-    if (!contentDiv) { return; }
-
-    // GenerateSiteMap is defined in state.js/tmmenu.js //
-    contentDiv.innerHTML = GenerateSiteMap(showUrls);
+  // 3) finally we have everything—render the sitemap
+  let showUrls   = document.getElementById('sitemap_showurls').checked;
+  let contentDiv = document.getElementById('sitemapcontent');
+  contentDiv.innerHTML = GenerateSiteMap(showUrls);
 }
 </script>
 </head>
