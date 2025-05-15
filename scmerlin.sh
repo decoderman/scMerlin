@@ -30,7 +30,7 @@ readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//'
 readonly SCM_VERSION="v2.5.20"
 readonly SCRIPT_VERSION="v2.5.20"
 SCRIPT_BRANCH="master"
-SCRIPT_REPO="https://raw.githubusercontent.com/ExtremeFiretop/$SCRIPT_NAME/$SCRIPT_BRANCH"
+SCRIPT_REPO="https://raw.githubusercontent.com/decoderman/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
 readonly SCRIPT_WEBPAGE_DIR="$(readlink -f /www/user)"
 readonly SCRIPT_WEB_DIR="$SCRIPT_WEBPAGE_DIR/$SCRIPT_NAME_LOWER"
@@ -2973,13 +2973,13 @@ case "$1" in
 		    SCRIPT_BRANCH="master"
 		    printf "\n${REDct}The 'develop' branch is NOT available. Updating from the 'master' branch...${CLRct}\n"
 		fi
-		SCRIPT_REPO="https://raw.githubusercontent.com/ExtremeFiretop/$SCRIPT_NAME/$SCRIPT_BRANCH"
+		SCRIPT_REPO="https://raw.githubusercontent.com/decoderman/$SCRIPT_NAME/$SCRIPT_BRANCH"
 		Update_Version force
 		exit 0
 	;;
 	stable)
 		SCRIPT_BRANCH="master"
-		SCRIPT_REPO="https://raw.githubusercontent.com/ExtremeFiretop/$SCRIPT_NAME/$SCRIPT_BRANCH"
+		SCRIPT_REPO="https://raw.githubusercontent.com/decoderman/$SCRIPT_NAME/$SCRIPT_BRANCH"
 		Update_Version force
 		exit 0
 	;;
