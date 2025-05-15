@@ -435,37 +435,20 @@ Update_Check()
 }
 
 ##---------------------------------------##
-## Added by ExtremeFiretop [2025-May-13] ##
+## Added by ExtremeFiretop [2025-May-15] ##
 ##---------------------------------------##
-Upgrade_StateJS() {
-    STATE_JS="/tmp/state.js"
-    [ -f "$STATE_JS" ] || return 0
-
-    if grep -q "var myMenu = \[\];" "$STATE_JS"; then
-        umount /www/state.js 2>/dev/null
-
-        # 2) remove old snippet into a temp file
-        TMP="/tmp/state-tmp.js"
-        sed '/^var myMenu = \[\];$/,/^GenerateSiteMap(false); AddDropdowns();$/d' "$STATE_JS" > "$TMP"
-
-        # 3) overwrite state.js with the stripped version
-        mv "$TMP" "$STATE_JS"
-
-        # 4) append your new IIFE
-        cat << 'EOF' >> "$STATE_JS"
+append_statejs_snippet() {
+    cat << 'EOF'
 function GenerateSiteMap(showurls){
     myMenu = [];
-
     if (typeof menuList == 'undefined' || menuList == null) {
         setTimeout(GenerateSiteMap, 1000, false);
         return;
     }
-
     for (var i = 0; i < menuList.length; i++) {
         var myobj = {};
         myobj.menuName = menuList[i].menuName;
         myobj.index    = menuList[i].index;
-
         var myTabs = menuList[i].tab.filter(function(item){
             return !menuExclude.tabs.includes(item.url);
         });
@@ -476,29 +459,24 @@ function GenerateSiteMap(showurls){
                 return true;
             }
         });
-        // ← changed: remove *all* __HIDE__ entries, regardless of URL
+        // ? changed: remove *all* __HIDE__ entries, regardless of URL
         myTabs = myTabs.filter(function(item){
             return item.tabName !== '__HIDE__';
         });
-
         myobj.tabs = myTabs;
         myMenu.push(myobj);
     }
-
     myMenu = myMenu.filter(function(item) {
         return !menuExclude.menus.includes(item.index);
     });
     myMenu = myMenu.filter(function(item) {
         return item.index != 'menu_Split';
     });
-
     var sitemapstring = '';
     for (var i = 0; i < myMenu.length; i++) {
-        // (no special‐case for __HIDE__ needed now)
         sitemapstring +=
             '<span style="font-size:14px;background-color:#4D595D;">' +
             '<b>' + myMenu[i].menuName + '</b></span><br>';
-
         for (var i2 = 0; i2 < myMenu[i].tabs.length; i2++) {
             var tab = myMenu[i].tabs[i2];
             var tabname = (tab.tabName == '__INHERIT__')
@@ -507,7 +485,6 @@ function GenerateSiteMap(showurls){
             var taburl  = (tab.url.indexOf('redirect.htm') != -1)
                         ? '/ext/shared-jy/redirect.htm'
                         : tab.url;
-
             if (showurls) {
                 sitemapstring +=
                     '<a style="text-decoration:underline;background-color:#4D595D;" ' +
@@ -522,15 +499,12 @@ function GenerateSiteMap(showurls){
         }
         sitemapstring += '<br>';
     }
-
     return sitemapstring;
 }
 (function(){
   if (window._stateEnhancedInjected) return;
   window._stateEnhancedInjected = true;
-
   const CACHE_KEY = 'stateEnhanced_menuListCache';
-
   function readCache(){
     try {
       return JSON.parse(localStorage.getItem(CACHE_KEY)) || {};
@@ -538,15 +512,12 @@ function GenerateSiteMap(showurls){
       return {};
     }
   }
-
   function writeCache(list, exclude){
     localStorage.setItem(CACHE_KEY,
       JSON.stringify({ menuList: list, menuExclude: exclude })
     );
   }
-
   (function watchForSetup(){
-    // Special‑case for index.asp: load from cache then defer inject until window.load
     if (location.pathname.endsWith('index.asp')) {
       if (!window.menuList || !window.menuExclude) {
         const { menuList, menuExclude } = readCache();
@@ -563,8 +534,6 @@ function GenerateSiteMap(showurls){
       });
       return;
     }
-
-    // Generic pages: wait for real menuList/menuExclude, cache once, then inject
     if (
       Array.isArray(window.menuList) && window.menuList.length &&
       window.menuExclude &&
@@ -580,10 +549,8 @@ function GenerateSiteMap(showurls){
       setTimeout(watchForSetup, 200);
     }
   })();
-
   function buildMyMenu(){
     if (window.myMenu && window.myMenu.length) return;
-
     const cache   = readCache();
     const exclude = (window.menuExclude && Array.isArray(window.menuExclude.tabs))
                     ? window.menuExclude
@@ -592,7 +559,6 @@ function GenerateSiteMap(showurls){
     const src     = Array.isArray(window.menuList) && window.menuList.length
                     ? window.menuList
                     : (cache.menuList || []);
-
     window.myMenu = src
       .filter(m => !hidden.has(m.index))
       .map(m => ({
@@ -606,10 +572,8 @@ function GenerateSiteMap(showurls){
       }))
       .filter(m => m.tabs.length > 0);
   }
-
   function injectDropdowns(){
     if (!Array.isArray(window.myMenu)) return;
-
     window.myMenu.forEach(menu => {
       let icon = document.getElementsByClassName(menu.index)[0];
       if (!icon) {
@@ -618,7 +582,6 @@ function GenerateSiteMap(showurls){
       }
       if (!icon || icon._injected) return;
       icon._injected = true;
-
       let html = '<div class="dropdown-content">';
       menu.tabs.forEach(t => {
         const name = (t.tabName==='__INHERIT__') ? t.url.split('.')[0] : t.tabName;
@@ -628,11 +591,9 @@ function GenerateSiteMap(showurls){
         html += `<a href="${url}" target="_self">${name}</a>`;
       });
       html += '</div>';
-
       const container = icon.closest('.menu') || icon.parentElement;
       container.classList.add('dropdown');
       container.insertAdjacentHTML('beforeend', html);
-
       const dd = container.querySelector('.dropdown-content');
       icon.addEventListener('click', e => {
         e.stopPropagation();
@@ -641,7 +602,6 @@ function GenerateSiteMap(showurls){
       dd.addEventListener('click', e => e.stopPropagation());
     });
   }
-
   function rehookShowMenu(){
     if (typeof show_menu !== 'function') return;
     const orig = show_menu;
@@ -651,7 +611,6 @@ function GenerateSiteMap(showurls){
       injectDropdowns();
     };
   }
-
   function init(){
     rehookShowMenu();
     document.addEventListener('click', () => {
@@ -659,21 +618,38 @@ function GenerateSiteMap(showurls){
               .forEach(el => { if (el.style.display==='block') el.style.display = 'none'; });
     });
   }
-
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
-
-  // Global fallback: ensure one final inject after full load
   window.addEventListener('load', ()=>{
     buildMyMenu();
     injectDropdowns();
   });
-
 })();
 EOF
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-May-13] ##
+##---------------------------------------##
+Upgrade_StateJS() {
+    STATE_JS="/tmp/state.js"
+    [ -f "$STATE_JS" ] || return 0
+
+    if grep -q "var myMenu = \[\];" "$STATE_JS"; then
+        umount /www/state.js 2>/dev/null
+
+        # 2) remove old snippet into a temp file
+        TMP="/tmp/state-tmp.js"
+        sed '/^var myMenu = \[\];$/,/^GenerateSiteMap(false); AddDropdowns();$/d' "$STATE_JS" > "$TMP"
+
+        # 3) overwrite state.js with the stripped version
+        mv "$TMP" "$STATE_JS"
+
+        # append the shared snippet
+        append_statejs_snippet >> "$STATE_JS"
 
         mount -o bind /tmp/state.js /www/state.js
     fi
@@ -1252,228 +1228,9 @@ Mount_WebUI()
 			cp -f /www/state.js /tmp/
 			sed -i 's~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\">~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\"><a style=\\"font-weight: bolder;text-decoration:underline;cursor:pointer;\\" href=\\"\/'"$MyWebPage"'\\" target=\\"_blank\\">Sitemap<\/a>\&nbsp\|\&nbsp~' /tmp/state.js
 
-			cat << 'EOF' >> /tmp/state.js
-function GenerateSiteMap(showurls){
-    myMenu = [];
+			# append the same shared snippet
+			append_statejs_snippet >> /tmp/state.js
 
-    if (typeof menuList == 'undefined' || menuList == null) {
-        setTimeout(GenerateSiteMap, 1000, false);
-        return;
-    }
-
-    for (var i = 0; i < menuList.length; i++) {
-        var myobj = {};
-        myobj.menuName = menuList[i].menuName;
-        myobj.index    = menuList[i].index;
-
-        var myTabs = menuList[i].tab.filter(function(item){
-            return !menuExclude.tabs.includes(item.url);
-        });
-        myTabs = myTabs.filter(function(item){
-            if (item.tabName == '__INHERIT__' && item.url == 'NULL') {
-                return false;
-            } else {
-                return true;
-            }
-        });
-        // ← changed: remove *all* __HIDE__ entries, regardless of URL
-        myTabs = myTabs.filter(function(item){
-            return item.tabName !== '__HIDE__';
-        });
-
-        myobj.tabs = myTabs;
-        myMenu.push(myobj);
-    }
-
-    myMenu = myMenu.filter(function(item) {
-        return !menuExclude.menus.includes(item.index);
-    });
-    myMenu = myMenu.filter(function(item) {
-        return item.index != 'menu_Split';
-    });
-
-    var sitemapstring = '';
-    for (var i = 0; i < myMenu.length; i++) {
-        // (no special‐case for __HIDE__ needed now)
-        sitemapstring +=
-            '<span style="font-size:14px;background-color:#4D595D;">' +
-            '<b>' + myMenu[i].menuName + '</b></span><br>';
-
-        for (var i2 = 0; i2 < myMenu[i].tabs.length; i2++) {
-            var tab = myMenu[i].tabs[i2];
-            var tabname = (tab.tabName == '__INHERIT__')
-                        ? tab.url.split('.')[0]
-                        : tab.tabName;
-            var taburl  = (tab.url.indexOf('redirect.htm') != -1)
-                        ? '/ext/shared-jy/redirect.htm'
-                        : tab.url;
-
-            if (showurls) {
-                sitemapstring +=
-                    '<a style="text-decoration:underline;background-color:#4D595D;" ' +
-                    'href="' + taburl + '" target="_blank">' + tabname +
-                    '</a> - ' + taburl + '<br>';
-            } else {
-                sitemapstring +=
-                    '<a style="text-decoration:underline;background-color:#4D595D;" ' +
-                    'href="' + taburl + '" target="_blank">' + tabname +
-                    '</a><br>';
-            }
-        }
-        sitemapstring += '<br>';
-    }
-
-    return sitemapstring;
-}
-(function(){
-  if (window._stateEnhancedInjected) return;
-  window._stateEnhancedInjected = true;
-
-  const CACHE_KEY = 'stateEnhanced_menuListCache';
-
-  function readCache(){
-    try {
-      return JSON.parse(localStorage.getItem(CACHE_KEY)) || {};
-    } catch {
-      return {};
-    }
-  }
-
-  function writeCache(list, exclude){
-    localStorage.setItem(CACHE_KEY,
-      JSON.stringify({ menuList: list, menuExclude: exclude })
-    );
-  }
-
-  (function watchForSetup(){
-    // Special‑case for index.asp: load from cache then defer inject until window.load
-    if (location.pathname.endsWith('index.asp')) {
-      if (!window.menuList || !window.menuExclude) {
-        const { menuList, menuExclude } = readCache();
-        if (menuList && menuExclude) {
-          window.menuList    = menuList;
-          window.menuExclude = menuExclude;
-        } else {
-          return setTimeout(watchForSetup, 200);
-        }
-      }
-      window.addEventListener('load', () => {
-        buildMyMenu();
-        injectDropdowns();
-      });
-      return;
-    }
-
-    // Generic pages: wait for real menuList/menuExclude, cache once, then inject
-    if (
-      Array.isArray(window.menuList) && window.menuList.length &&
-      window.menuExclude &&
-      Array.isArray(window.menuExclude.tabs) &&
-      Array.isArray(window.menuExclude.menus)
-    ) {
-      if (!readCache().menuList) {
-        writeCache(window.menuList, window.menuExclude);
-      }
-      buildMyMenu();
-      injectDropdowns();
-    } else {
-      setTimeout(watchForSetup, 200);
-    }
-  })();
-
-  function buildMyMenu(){
-    if (window.myMenu && window.myMenu.length) return;
-
-    const cache   = readCache();
-    const exclude = (window.menuExclude && Array.isArray(window.menuExclude.tabs))
-                    ? window.menuExclude
-                    : (cache.menuExclude || { tabs: [], menus: [] });
-    const hidden  = new Set([...(exclude.menus||[]), 'menu_Split']);
-    const src     = Array.isArray(window.menuList) && window.menuList.length
-                    ? window.menuList
-                    : (cache.menuList || []);
-
-    window.myMenu = src
-      .filter(m => !hidden.has(m.index))
-      .map(m => ({
-        menuName: m.menuName,
-        index:    m.index,
-        tabs:     (m.tab||[])
-                    .filter(t => !exclude.tabs.includes(t.url))
-                    .filter(t => !(t.tabName==='__INHERIT__' && t.url==='NULL'))
-                    .filter(t => !(t.tabName==='__HIDE__'   && t.url==='NULL'))
-                    .filter(t => t.tabName!=='__HIDE__')
-      }))
-      .filter(m => m.tabs.length > 0);
-  }
-
-  function injectDropdowns(){
-    if (!Array.isArray(window.myMenu)) return;
-
-    window.myMenu.forEach(menu => {
-      let icon = document.getElementsByClassName(menu.index)[0];
-      if (!icon) {
-        const id = menu.index.replace(/^menu_/, '') + '_menu';
-        icon = document.getElementById(id);
-      }
-      if (!icon || icon._injected) return;
-      icon._injected = true;
-
-      let html = '<div class="dropdown-content">';
-      menu.tabs.forEach(t => {
-        const name = (t.tabName==='__INHERIT__') ? t.url.split('.')[0] : t.tabName;
-        const url  = t.url.includes('redirect.htm')
-                   ? '/ext/shared-jy/redirect.htm'
-                   : t.url;
-        html += `<a href="${url}" target="_self">${name}</a>`;
-      });
-      html += '</div>';
-
-      const container = icon.closest('.menu') || icon.parentElement;
-      container.classList.add('dropdown');
-      container.insertAdjacentHTML('beforeend', html);
-
-      const dd = container.querySelector('.dropdown-content');
-      icon.addEventListener('click', e => {
-        e.stopPropagation();
-        dd.style.display = (dd.style.display==='block') ? 'none' : 'block';
-      });
-      dd.addEventListener('click', e => e.stopPropagation());
-    });
-  }
-
-  function rehookShowMenu(){
-    if (typeof show_menu !== 'function') return;
-    const orig = show_menu;
-    show_menu = function(...args){
-      orig.apply(this, args);
-      buildMyMenu();
-      injectDropdowns();
-    };
-  }
-
-  function init(){
-    rehookShowMenu();
-    document.addEventListener('click', () => {
-      document.querySelectorAll('.dropdown-content')
-              .forEach(el => { if (el.style.display==='block') el.style.display = 'none'; });
-    });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-
-  // Global fallback: ensure one final inject after full load
-  window.addEventListener('load', ()=>{
-    buildMyMenu();
-    injectDropdowns();
-  });
-
-})();
-EOF
 			mount -o bind /tmp/state.js /www/state.js
 
 			Print_Output true "Mounted Sitemap page as $MyWebPage" "$PASS"
