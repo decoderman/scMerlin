@@ -443,8 +443,6 @@ Upgrade_StateJS() {
 
     if grep -q "var myMenu = \[\];" "$STATE_JS"; then
         umount /www/state.js 2>/dev/null
-        echo ""
-        Print_Output true "Old dropdown code found — patching with new IIFE." "$PASS"
 
         # 2) remove old snippet into a temp file
         TMP="/tmp/state-tmp.js"
@@ -678,7 +676,6 @@ function GenerateSiteMap(showurls){
 EOF
 
         mount -o bind /tmp/state.js /www/state.js
-        Print_Output true "state.js patched and new IIFE appended." "$PASS"
     fi
 }
 
