@@ -11,7 +11,7 @@
 ##       https://github.com/jackyaz/scMerlin        ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-May-13
+# Last Modified: 2025-May-15
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -459,7 +459,6 @@ function GenerateSiteMap(showurls){
                 return true;
             }
         });
-        // ? changed: remove *all* __HIDE__ entries, regardless of URL
         myTabs = myTabs.filter(function(item){
             return item.tabName !== '__HIDE__';
         });
