@@ -26,8 +26,14 @@
 <script type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Mar-01 **/
+/** Last Modified: 2025-May-17 **/
 /**----------------------------**/
+
+let sitemapFirmVerStr = '<% nvram_get("firmver"); %>';
+let sitemapFirmVersion = sitemapFirmVerStr.replace(/\./g,"");
+let sitemapBaseVerStr = '<% nvram_get("buildno"); %>';
+let sitemapBaseVersion = sitemapBaseVerStr.replace(/\.[0-9]+/g,"");
+let sitemapBranchVers = sitemapFirmVersion + '.' + sitemapBaseVersion;
 
 function SetCurrentPage()
 {
@@ -46,36 +52,64 @@ function initial()
     { checkbox.addEventListener('click', LoadSiteMap); }
 }
 
-function LoadSiteMap() {
-  if (
-    typeof menuList === 'undefined'     ||
-    !Array.isArray(menuList)            ||
-    !window.menuExclude                 ||
-    !Array.isArray(window.menuExclude.tabs)
-  ) {
-    let stored = localStorage.getItem('stateEnhanced_menuListCache');
-    if (stored) {
-      try {
-        let obj = JSON.parse(stored);
-        window.menuList     = obj.menuList;
-        window.menuExclude  = obj.menuExclude;
-      } catch(e){}
-    }
-  }
+/**--------------------------------------------**/
+/** This is intended for the 3006 F/W codebase **/
+/**--------------------------------------------**/
+function LoadSiteMap_3006_()
+{
+   if (typeof menuList === 'undefined'     ||
+       !Array.isArray(menuList)            ||
+       !window.menuExclude                 ||
+       !Array.isArray(window.menuExclude.tabs))
+   {
+       let stored = localStorage.getItem('stateEnhanced_menuListCache');
+       if (stored)
+       {
+           try
+           {
+               let obj = JSON.parse(stored);
+               window.menuList    = obj.menuList;
+               window.menuExclude = obj.menuExclude;
+           }
+           catch(e){}
+       }
+   }
 
-  if (
-    typeof menuList === 'undefined'    ||
-    !Array.isArray(menuList)           ||
-    !window.menuExclude                ||
-    !Array.isArray(window.menuExclude.tabs)
-  ) {
-    return setTimeout(LoadSiteMap, 500);
-  }
+   if (typeof menuList === 'undefined'    ||
+       !Array.isArray(menuList)           ||
+       !window.menuExclude                ||
+       !Array.isArray(window.menuExclude.tabs))
+   { return setTimeout(LoadSiteMap_3006_, 1000); }
 
-  // 3) finally we have everything—render the sitemap
-  let showUrls   = document.getElementById('sitemap_showurls').checked;
-  let contentDiv = document.getElementById('sitemapcontent');
-  contentDiv.innerHTML = GenerateSiteMap(showUrls);
+   // Finally we have everything—render the sitemap //
+   let mapShowURLs = document.getElementById('sitemap_showurls').checked;
+   let siteContent = document.getElementById('sitemapcontent');
+   siteContent.innerHTML = GenerateSiteMap(mapShowURLs);
+}
+
+/**--------------------------------------------**/
+/** This is intended for the 3004 F/W codebase **/
+/**--------------------------------------------**/
+function LoadSiteMap_3004_()
+{
+    if (typeof myMenu === 'undefined' ||
+        !myMenu || myMenu.length === 0)
+    { setTimeout(LoadSiteMap_3004_, 1000); return; }
+
+    var mapShowURLs = document.getElementById('sitemap_showurls').checked;
+    var siteContent = document.getElementById('sitemapcontent');
+    siteContent.innerHTML = GenerateSiteMap(mapShowURLs);
+}
+
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-May-17] **/
+/**----------------------------------------**/
+function LoadSiteMap()
+{
+    if (sitemapFirmVersion === '3004')
+    { LoadSiteMap_3004_(); }
+    else
+    { LoadSiteMap_3006_(); }
 }
 </script>
 </head>

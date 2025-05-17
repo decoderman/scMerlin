@@ -11,7 +11,7 @@
 ##       https://github.com/jackyaz/scMerlin        ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-May-15
+# Last Modified: 2025-May-17
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -88,6 +88,13 @@ readonly webPageSiteMpRegExp="${webPageLineTabExp}\"Sitemap\"\},"
 readonly webPageScriptRegExp="${webPageLineTabExp}\"$SCRIPT_NAME\"\},"
 readonly BEGIN_MenuAddOnsTag="/\*\*BEGIN:_AddOns_\*\*/"
 readonly ENDIN_MenuAddOnsTag="/\*\*ENDIN:_AddOns_\*\*/"
+
+##-------------------------------------##
+## Added by Martinski W. [2025-May-17] ##
+##-------------------------------------##
+readonly fwInstalledBaseVers="$(nvram get firmver | sed 's/\.//g')"
+readonly fwInstalledBuildVers="$(nvram get buildno)"
+readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildVers" | awk -F'.' '{print $1}')"
 
 ### End of output format variables ###
 
@@ -434,18 +441,154 @@ Update_Check()
 	echo "$doupdate,$localver,$serverver"
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2025-May-17] ##
+##----------------------------------------##
+AppendTo_statejs_3004_()
+{
+    cat << 'EOF'
+var myMenu = [];
+function AddDropdowns()
+{
+	if (myMenu.length == 0)
+	{
+		setTimeout(AddDropdowns,1000);
+		return;
+	}
+	for (var i = 0; i < myMenu.length; i++)
+	{
+		var sitemapstring = '<div class="dropdown-content">';
+		for(var i2 = 0; i2 < myMenu[i].tabs.length; i2++){
+			if(myMenu[i].tabs[i2].tabName == '__HIDE__'){
+				continue;
+			}
+		var tabname = myMenu[i].tabs[i2].tabName;
+		var taburl = myMenu[i].tabs[i2].url;
+		if(tabname == '__INHERIT__'){
+			tabname = taburl.split('.')[0];
+		}
+		if(taburl.indexOf('redirect.htm') != -1){
+			taburl = '/ext/shared-jy/redirect.htm';
+		}
+		sitemapstring += '<a href="'+taburl+'">'+tabname+'</a>';
+		}
+		document.getElementsByClassName(myMenu[i].index)[0].parentElement.parentElement.parentElement.parentElement.parentElement.innerHTML += sitemapstring;
+		document.getElementsByClassName(myMenu[i].index)[0].parentElement.parentElement.parentElement.parentElement.parentElement.classList.add('dropdown');
+	}
+}
+
+function GenerateSiteMap(showurls)
+{
+	myMenu = [];
+
+	if (typeof menuList == 'undefined' || menuList == null){
+		setTimeout(GenerateSiteMap,1000,false);
+		return;
+	}
+
+	for (var i = 0; i < menuList.length; i++)
+	{
+		var myobj = {};
+		myobj.menuName = menuList[i].menuName;
+		myobj.index = menuList[i].index;
+
+		var myTabs = menuList[i].tab.filter(function(item){
+			return !menuExclude.tabs.includes(item.url);
+		});
+		myTabs = myTabs.filter(function(item){
+			if(item.tabName == '__INHERIT__' && item.url == 'NULL'){
+				return false;
+			}
+			else{
+				return true;
+			}
+		});
+		myTabs = myTabs.filter(function(item){
+			if(item.tabName == '__HIDE__' && item.url == 'NULL'){
+				return false;
+			}
+			else{
+				return true;
+			}
+		});
+		myTabs = myTabs.filter(function(item){
+			return item.url.indexOf('TrafficMonitor_dev') == -1;
+		});
+		myTabs = myTabs.filter(function(item){
+			return item.url != 'AdaptiveQoS_Adaptive.asp';
+		});
+		myobj.tabs = myTabs;
+
+		myMenu.push(myobj);
+	}
+
+	myMenu = myMenu.filter(function(item) {
+		return !menuExclude.menus.includes(item.index);
+	});
+	myMenu = myMenu.filter(function(item) {
+		return item.index != 'menu_Split';
+	});
+
+	var sitemapstring = '';
+
+	for (var i = 0; i < myMenu.length; i++)
+	{
+		if (myMenu[i].tabs[0].tabName == '__HIDE__' && myMenu[i].tabs[0].url != 'NULL')
+		{
+			if(showurls == true){
+				sitemapstring += '<span style="font-size:14px;background-color:#4D595D;"><b><a style="color:#FFCC00;background-color:#4D595D;" href="'+myMenu[i].tabs[0].url+'" target="_blank">'+myMenu[i].menuName+'</a> - '+myMenu[i].tabs[0].url+'</b></span><br>';
+			}
+			else{
+				sitemapstring += '<span style="font-size:14px;background-color:#4D595D;"><b><a style="color:#FFCC00;background-color:#4D595D;" href="'+myMenu[i].tabs[0].url+'" target="_blank">'+myMenu[i].menuName+'</a></b></span><br>';
+			}
+		}
+		else{
+			sitemapstring += '<span style="font-size:14px;background-color:#4D595D;"><b>'+myMenu[i].menuName+'</b></span><br>';
+		}
+		for (var i2 = 0; i2 < myMenu[i].tabs.length; i2++)
+		{
+			if(myMenu[i].tabs[i2].tabName == '__HIDE__'){
+				continue;
+			}
+			var tabname = myMenu[i].tabs[i2].tabName;
+			var taburl = myMenu[i].tabs[i2].url;
+			if(tabname == '__INHERIT__'){
+				tabname = taburl.split('.')[0];
+			}
+			if(taburl.indexOf('redirect.htm') != -1){
+				taburl = '/ext/shared-jy/redirect.htm';
+			}
+			if(showurls == true){
+				sitemapstring += '<a style="text-decoration:underline;background-color:#4D595D;" href="'+taburl+'" target="_blank">'+tabname+'</a> - '+taburl+'<br>';
+			}
+			else{
+				sitemapstring += '<a style="text-decoration:underline;background-color:#4D595D;" href="'+taburl+'" target="_blank">'+tabname+'</a><br>';
+			}
+		}
+		sitemapstring += '<br>';
+	}
+	return sitemapstring;
+}
+GenerateSiteMap(false);
+AddDropdowns();
+EOF
+}
+
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2025-May-15] ##
 ##---------------------------------------##
-append_statejs_snippet() {
+AppendTo_statejs_3006_()
+{
     cat << 'EOF'
-function GenerateSiteMap(showurls){
+function GenerateSiteMap(showurls)
+{
     myMenu = [];
     if (typeof menuList == 'undefined' || menuList == null) {
         setTimeout(GenerateSiteMap, 1000, false);
         return;
     }
-    for (var i = 0; i < menuList.length; i++) {
+    for (var i = 0; i < menuList.length; i++)
+    {
         var myobj = {};
         myobj.menuName = menuList[i].menuName;
         myobj.index    = menuList[i].index;
@@ -472,11 +615,13 @@ function GenerateSiteMap(showurls){
         return item.index != 'menu_Split';
     });
     var sitemapstring = '';
-    for (var i = 0; i < myMenu.length; i++) {
+    for (var i = 0; i < myMenu.length; i++)
+    {
         sitemapstring +=
             '<span style="font-size:14px;background-color:#4D595D;">' +
             '<b>' + myMenu[i].menuName + '</b></span><br>';
-        for (var i2 = 0; i2 < myMenu[i].tabs.length; i2++) {
+        for (var i2 = 0; i2 < myMenu[i].tabs.length; i2++)
+        {
             var tab = myMenu[i].tabs[i2];
             var tabname = (tab.tabName == '__INHERIT__')
                         ? tab.url.split('.')[0]
@@ -548,7 +693,8 @@ function GenerateSiteMap(showurls){
       setTimeout(watchForSetup, 200);
     }
   })();
-  function buildMyMenu(){
+  function buildMyMenu()
+  {
     if (window.myMenu && window.myMenu.length) return;
     const cache   = readCache();
     const exclude = (window.menuExclude && Array.isArray(window.menuExclude.tabs))
@@ -571,7 +717,8 @@ function GenerateSiteMap(showurls){
       }))
       .filter(m => m.tabs.length > 0);
   }
-  function injectDropdowns(){
+  function injectDropdowns()
+  {
     if (!Array.isArray(window.myMenu)) return;
     window.myMenu.forEach(menu => {
       let icon = document.getElementsByClassName(menu.index)[0];
@@ -601,7 +748,8 @@ function GenerateSiteMap(showurls){
       dd.addEventListener('click', e => e.stopPropagation());
     });
   }
-  function rehookShowMenu(){
+  function rehookShowMenu()
+  {
     if (typeof show_menu !== 'function') return;
     const orig = show_menu;
     show_menu = function(...args){
@@ -610,7 +758,8 @@ function GenerateSiteMap(showurls){
       injectDropdowns();
     };
   }
-  function init(){
+  function init()
+  {
     rehookShowMenu();
     document.addEventListener('click', () => {
       document.querySelectorAll('.dropdown-content')
@@ -630,25 +779,37 @@ function GenerateSiteMap(showurls){
 EOF
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2025-May-13] ##
-##---------------------------------------##
-Upgrade_StateJS() {
-    STATE_JS="/tmp/state.js"
-    [ -f "$STATE_JS" ] || return 0
+##----------------------------------------##
+## Modified by Martinski W. [2025-May-17] ##
+##----------------------------------------##
+Upgrade_StateJS()
+{
+    local TMP_STATE_JS="/tmp/state.js"
+    [ -f "$TMP_STATE_JS" ] || return 0
 
-    if grep -q "var myMenu = \[\];" "$STATE_JS"; then
+    if [ "$fwInstalledBaseVers" = "3006" ] && \
+       grep -q '^var myMenu = \[\];$' "$TMP_STATE_JS"
+    then
         umount /www/state.js 2>/dev/null
 
-        # 2) remove old snippet into a temp file
-        TMP="/tmp/state-tmp.js"
-        sed '/^var myMenu = \[\];$/,/^GenerateSiteMap(false); AddDropdowns();$/d' "$STATE_JS" > "$TMP"
+        # Remove previous code #
+        sed -i '/^var myMenu = \[\];$/,/^AddDropdowns();$/d' "$TMP_STATE_JS"
 
-        # 3) overwrite state.js with the stripped version
-        mv "$TMP" "$STATE_JS"
+        # Append new 3006 code #
+        AppendTo_statejs_3006_ >> "$TMP_STATE_JS"
 
-        # append the shared snippet
-        append_statejs_snippet >> "$STATE_JS"
+        mount -o bind /tmp/state.js /www/state.js
+
+    elif [ "$fwInstalledBaseVers" = "3004" ] && \
+         grep -q 'function injectDropdowns()' "$TMP_STATE_JS"
+    then
+        umount /www/state.js 2>/dev/null
+
+        # Remove the 3006 code #
+        sed -i '/^function GenerateSiteMap(showurls)/,$d' "$TMP_STATE_JS"
+
+        # Append previous code #
+        AppendTo_statejs_3004_ >> "$TMP_STATE_JS"
 
         mount -o bind /tmp/state.js /www/state.js
     fi
@@ -1087,7 +1248,7 @@ Get_WebUI_Page()
 ##----------------------------------------##
 Get_WebUI_URL()
 {
-	local urlPage=""  urlProto=""  urlDomain=""  urlPort=""
+	local urlPage  urlProto  urlDomain  urlPort  lanPort
 
 	if [ ! -f "$TEMP_MENU_TREE" ]
 	then
@@ -1107,12 +1268,13 @@ Get_WebUI_URL()
 	else
 		urlDomain="$(nvram get lan_ipaddr)"
 	fi
-	if [ "$(nvram get ${urlProto}_lanport)" -eq 80 ] || \
-	   [ "$(nvram get ${urlProto}_lanport)" -eq 443 ]
+
+	lanPort="$(nvram get ${urlProto}_lanport)"
+	if [ "$lanPort" -eq 80 ] || [ "$lanPort" -eq 443 ]
 	then
 		urlPort=""
 	else
-		urlPort=":$(nvram get ${urlProto}_lanport)"
+		urlPort=":$lanPort"
 	fi
 
 	if echo "$urlPage" | grep -qE "^${webPageFileRegExp}$" && \
@@ -1148,9 +1310,9 @@ ${ENDIN_MenuAddOnsTag}" "$TEMP_MENU_TREE"
 }
 
 ### locking mechanism code credit to Martineau (@MartineauUK) ###
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-May-13] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-May-17] ##
+##----------------------------------------##
 Mount_WebUI()
 {
 	realpage=""
@@ -1227,8 +1389,11 @@ Mount_WebUI()
 			cp -f /www/state.js /tmp/
 			sed -i 's~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\">~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\"><a style=\\"font-weight: bolder;text-decoration:underline;cursor:pointer;\\" href=\\"\/'"$MyWebPage"'\\" target=\\"_blank\\">Sitemap<\/a>\&nbsp\|\&nbsp~' /tmp/state.js
 
-			# append the same shared snippet
-			append_statejs_snippet >> /tmp/state.js
+			# Append custom code to 'state.js' file #
+			if [ "$fwInstalledBaseVers" = "3004" ]
+			then AppendTo_statejs_3004_ >> /tmp/state.js
+			else AppendTo_statejs_3006_ >> /tmp/state.js
+			fi
 
 			mount -o bind /tmp/state.js /www/state.js
 
@@ -1642,7 +1807,7 @@ Get_NVRAM_Usage()
 ScriptHeader()
 {
 	clear
-	printf "\\n"
+	printf "\n"
 	printf "${BOLD}######################################################${CLEARFORMAT}\\n"
 	printf "${BOLD}##               __  __              _  _           ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##              |  \/  |            | |(_)          ##${CLEARFORMAT}\\n"
@@ -1656,11 +1821,11 @@ ScriptHeader()
 	printf "${BOLD}##       https://github.com/jackyaz/scMerlin        ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
 	printf "${BOLD}######################################################${CLEARFORMAT}\\n"
-	printf "\\n"
+	printf "\n"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-28] ##
+## Modified by Martinski W. [2024-May-15] ##
 ##----------------------------------------##
 MainMenu()
 {
@@ -1818,7 +1983,7 @@ MainMenu()
 					printf "\\n"
 					service restart_ftpd >/dev/null 2>&1
 				else
-				printf "\\n${BOLD}\\e[31mInvalid selection (FTP not enabled)${CLEARFORMAT}\\n\\n"
+				printf "\n${BOLD}${ERR}Invalid selection (FTP is NOT enabled)${CLEARFORMAT}\n\n"
 				fi
 				PressEnter
 				break
@@ -1830,7 +1995,7 @@ MainMenu()
 					printf "\\n"
 					service restart_samba >/dev/null 2>&1
 				else
-					printf "\\n${BOLD}\\e[31mInvalid selection (Samba not enabled)${CLEARFORMAT}\\n\\n"
+					printf "\n${BOLD}${ERR}Invalid selection (Samba is NOT enabled)${CLEARFORMAT}\n\n"
 				fi
 				PressEnter
 				break
@@ -1842,7 +2007,7 @@ MainMenu()
 					printf "\\n"
 					service restart_ddns >/dev/null 2>&1
 				else
-					printf "\\n${BOLD}\\e[31mInvalid selection (DDNS client not enabled)${CLEARFORMAT}\\n\\n"
+					printf "\n${BOLD}${ERR}Invalid selection (DDNS client NOT enabled)${CLEARFORMAT}\n\n"
 				fi
 				PressEnter
 				break
@@ -1850,17 +2015,20 @@ MainMenu()
 			8)
 				ENABLED_NTPD="$(nvram get ntpd_enable)"
 				if ! Validate_Number "$ENABLED_NTPD"; then ENABLED_NTPD=0; fi
-				if [ "$ENABLED_NTPD" -eq 1 ]; then
-					printf "\\n"
+				if [ "$ENABLED_NTPD" -eq 1 ]
+				then
+					printf "\nRestarting router local NTP time server...\n"
 					service restart_time >/dev/null 2>&1
-				elif [ -f /opt/etc/init.d/S77ntpd ]; then
-					printf "\\n"
+				elif [ -f /opt/etc/init.d/S77ntpd ]
+				then
+					printf "\nRestarting Entware ntpd time server...\n"
 					/opt/etc/init.d/S77ntpd restart
-				elif [ -f /opt/etc/init.d/S77chronyd ]; then
-					printf "\\n"
+				elif [ -f /opt/etc/init.d/S77chronyd ]
+				then
+					printf "\nRestarting Entware chronyd time server...\n"
 					/opt/etc/init.d/S77chronyd restart
 				else
-					printf "\\n${BOLD}\\e[31mInvalid selection (NTP server not enabled/installed)${CLEARFORMAT}\\n\\n"
+					printf "\n${BOLD}${ERR}Invalid selection (NTP server NOT enabled/installed)${CLEARFORMAT}\n\n"
 				fi
 				PressEnter
 				break
@@ -1870,7 +2038,7 @@ MainMenu()
 					printf "\\n"
 					service restart_vpnclient1 >/dev/null 2>&1
 				else
-					printf "\\n${BOLD}\\e[31mInvalid selection (VPN Client not configured)${CLEARFORMAT}\\n\\n"
+					printf "\n${BOLD}${ERR}Invalid selection (VPN Client NOT configured)${CLEARFORMAT}\n\n"
 				fi
 				PressEnter
 				break
@@ -1880,7 +2048,7 @@ MainMenu()
 					printf "\\n"
 					service restart_vpnclient2 >/dev/null 2>&1
 				else
-					printf "\\n${BOLD}\\e[31mInvalid selection (VPN Client not configured)${CLEARFORMAT}\\n\\n"
+					printf "\n${BOLD}${ERR}Invalid selection (VPN Client NOT configured)${CLEARFORMAT}\n\n"
 				fi
 				PressEnter
 				break
@@ -1890,7 +2058,7 @@ MainMenu()
 					printf "\\n"
 					service restart_vpnclient3 >/dev/null 2>&1
 				else
-					printf "\\n${BOLD}\\e[31mInvalid selection (VPN Client not configured)${CLEARFORMAT}\\n\\n"
+					printf "\n${BOLD}${ERR}Invalid selection (VPN Client NOT configured)${CLEARFORMAT}\n\n"
 				fi
 				PressEnter
 				break
@@ -1900,7 +2068,7 @@ MainMenu()
 					printf "\\n"
 					service restart_vpnclient4 >/dev/null 2>&1
 				else
-					printf "\\n${BOLD}\\e[31mInvalid selection (VPN Client not configured)${CLEARFORMAT}\\n\\n"
+					printf "\n${BOLD}${ERR}Invalid selection (VPN Client NOT configured)${CLEARFORMAT}\n\n"
 				fi
 				PressEnter
 				break
@@ -1910,7 +2078,7 @@ MainMenu()
 					printf "\\n"
 					service restart_vpnclient5 >/dev/null 2>&1
 				else
-					printf "\\n${BOLD}\\e[31mInvalid selection (VPN Client not configured)${CLEARFORMAT}\\n\\n"
+					printf "\n${BOLD}${ERR}Invalid selection (VPN Client NOT configured)${CLEARFORMAT}\n\n"
 				fi
 				PressEnter
 				break
@@ -1920,7 +2088,7 @@ MainMenu()
 					printf "\\n"
 					service restart_vpnserver1 >/dev/null 2>&1
 				else
-					printf "\\n${BOLD}\\e[31mInvalid selection (VPN Server not configured)${CLEARFORMAT}\\n\\n"
+					printf "\n${BOLD}${ERR}Invalid selection (VPN Server NOT configured)${CLEARFORMAT}\n\n"
 				fi
 				PressEnter
 				break
@@ -1930,17 +2098,20 @@ MainMenu()
 					printf "\\n"
 					service restart_vpnserver2 >/dev/null 2>&1
 				else
-					printf "\\n${BOLD}\\e[31mInvalid selection (VPN Server not configured)${CLEARFORMAT}\\n\\n"
+					printf "\n${BOLD}${ERR}Invalid selection (VPN Server NOT configured)${CLEARFORMAT}\n\n"
 				fi
 				PressEnter
 				break
 			;;
 			et)
 				printf "\\n"
-				if [ -f /opt/bin/opkg ]; then
-					if Check_Lock menu; then
-						while true; do
-							printf "\\n${BOLD}Are you sure you want to restart all Entware scripts? (y/n)${CLEARFORMAT}  "
+				if [ -f /opt/bin/opkg ]
+				then
+					if Check_Lock menu
+					then
+						while true
+						do
+							printf "\n${BOLD}Are you sure you want to restart all Entware scripts? (y/n)${CLEARFORMAT}  "
 							read -r confirm
 							case "$confirm" in
 								y|Y)
@@ -1955,7 +2126,7 @@ MainMenu()
 						Clear_Lock
 					fi
 				else
-					printf "\\n${BOLD}\\e[31mInvalid selection (Entware not installed)${CLEARFORMAT}\\n"
+					printf "\n${BOLD}${ERR}Invalid selection (Entware NOT installed)${CLEARFORMAT}\n\n"
 				fi
 				PressEnter
 				break
@@ -1963,13 +2134,16 @@ MainMenu()
 			c)
 				printf "\\n"
 				program=""
-				if [ -f /opt/bin/opkg ]; then
-					if [ -f /opt/bin/htop ]; then
+				if [ -f /opt/bin/opkg ]
+				then
+					if [ -f /opt/bin/htop ]
+					then
 						program="htop"
 					else
 						program=""
-						while true; do
-							printf "\\n${BOLD}Would you like to install htop (enhanced version of top)? (y/n)${CLEARFORMAT}  "
+						while true
+						do
+							printf "\n${BOLD}Would you like to install htop (enhanced version of top)? (y/n)${CLEARFORMAT}  "
 							read -r confirm
 							case "$confirm" in
 								y|Y)
@@ -2083,13 +2257,15 @@ MainMenu()
 				break
 			;;
 			r)
-				printf "\\n"
-				while true; do
-					if [ "$ROUTER_MODEL" = "RT-AC86U" ]; then
+				printf "\n"
+				while true
+				do
+					if [ "$ROUTER_MODEL" = "RT-AC86U" ]
+					then
 						printf "\\n${BOLD}${WARN}Remote reboots are not recommend for %s${CLEARFORMAT}" "$ROUTER_MODEL"
 						printf "\\n${BOLD}${WARN}Some %s fail to reboot correctly and require a manual power cycle${CLEARFORMAT}\\n" "$ROUTER_MODEL"
 					fi
-					printf "\\n${BOLD}Are you sure you want to reboot? (y/n)${CLEARFORMAT}  "
+					printf "\n${BOLD}Are you sure you want to reboot? (y/n)${CLEARFORMAT}  "
 					read -r confirm
 					case "$confirm" in
 						y|Y)
@@ -2154,11 +2330,11 @@ MainMenu()
 			;;
 			e)
 				ScriptHeader
-				printf "\\n${BOLD}Thanks for using %s!${CLEARFORMAT}\\n\\n\\n" "$SCRIPT_NAME"
+				printf "\n${BOLD}Thanks for using %s!${CLEARFORMAT}\n\n\n" "$SCRIPT_NAME"
 				exit 0
 			;;
 			z)
-				printf "\\n${BOLD}Are you sure you want to uninstall %s? (y/n)${CLEARFORMAT}  " "$SCRIPT_NAME"
+				printf "\n${BOLD}Are you sure you want to uninstall %s? (y/n)${CLEARFORMAT}  " "$SCRIPT_NAME"
 				read -r confirm
 				case "$confirm" in
 					y|Y)
@@ -2171,7 +2347,7 @@ MainMenu()
 				esac
 			;;
 			*)
-				printf "\\nPlease choose a valid option\\n\\n"
+				printf "\nPlease choose a valid option\n\n"
 			;;
 		esac
 	done
@@ -2180,16 +2356,19 @@ MainMenu()
 	MainMenu
 }
 
-Check_Requirements(){
+Check_Requirements()
+{
 	CHECKSFAILED="false"
 
-	if [ "$(nvram get jffs2_scripts)" -ne 1 ]; then
+	if [ "$(nvram get jffs2_scripts)" -ne 1 ]
+	then
 		nvram set jffs2_scripts=1
 		nvram commit
 		Print_Output true "Custom JFFS Scripts enabled" "$WARN"
 	fi
 
-	if ! Firmware_Version_Check; then
+	if ! Firmware_Version_Check
+	then
 		Print_Output false "Unsupported firmware version detected" "$ERR"
 		Print_Output false "$SCRIPT_NAME requires Merlin 384.15/384.13_4 or Fork 43E5 (or later)" "$ERR"
 		CHECKSFAILED="true"
@@ -2251,7 +2430,7 @@ Menu_Install()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-28] ##
+## Modified by Martinski W. [2025-Apr-13] ##
 ##----------------------------------------##
 Menu_Startup()
 {
@@ -2262,7 +2441,8 @@ Menu_Startup()
 	NTP_Ready
 
 	Check_Lock
-	if [ "$1" != "force" ]; then
+	if [ $# -eq 0 ] || [ "$1" != "force" ]
+	then
 		sleep 14
 	fi
 
@@ -2422,7 +2602,7 @@ WAN_IsConnected()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-28] ##
+## Modified by Martinski W. [2025-Apr-13] ##
 ##----------------------------------------##
 NTP_Ready()
 {
@@ -2473,7 +2653,7 @@ NTP_Ready()
 			Clear_Lock
 			exit 1
 		else
-			Print_Output true "NTP has synced, $SCRIPT_NAME will now continue" "$PASS"
+			Print_Output true "NTP has synced [$ntpWaitSecs secs], $SCRIPT_NAME will now continue." "$PASS"
 			Clear_Lock
 		fi
 	fi
@@ -2573,7 +2753,7 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Sep-22] ##
+## Modified by Martinski W. [2025-Apr-13] ##
 ##----------------------------------------##
 case "$1" in
 	install)
@@ -2582,7 +2762,7 @@ case "$1" in
 		exit 0
 	;;
 	startup)
-		Menu_Startup "$2"
+		Menu_Startup "$([ $# -lt 2 ] && echo "" || echo "$2")"
 		exit 0
 	;;
 	service_event)
