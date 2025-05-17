@@ -11,7 +11,7 @@
 ##       https://github.com/jackyaz/scMerlin        ##
 ##                                                  ##
 ######################################################
-# Last Modified: 2025-Mar-01
+# Last Modified: 2025-May-15
 #-----------------------------------------------------
 
 ##########       Shellcheck directives     ###########
@@ -27,8 +27,8 @@
 ### Start of script variables ###
 readonly SCRIPT_NAME="scMerlin"
 readonly SCRIPT_NAME_LOWER="$(echo "$SCRIPT_NAME" | tr 'A-Z' 'a-z' | sed 's/d//')"
-readonly SCM_VERSION="v2.5.10"
-readonly SCRIPT_VERSION="v2.5.10"
+readonly SCM_VERSION="v2.5.20"
+readonly SCRIPT_VERSION="v2.5.20"
 SCRIPT_BRANCH="master"
 SCRIPT_REPO="https://raw.githubusercontent.com/decoderman/$SCRIPT_NAME/$SCRIPT_BRANCH"
 readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
@@ -434,9 +434,229 @@ Update_Check()
 	echo "$doupdate,$localver,$serverver"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-11] ##
-##----------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-May-15] ##
+##---------------------------------------##
+append_statejs_snippet() {
+    cat << 'EOF'
+function GenerateSiteMap(showurls){
+    myMenu = [];
+    if (typeof menuList == 'undefined' || menuList == null) {
+        setTimeout(GenerateSiteMap, 1000, false);
+        return;
+    }
+    for (var i = 0; i < menuList.length; i++) {
+        var myobj = {};
+        myobj.menuName = menuList[i].menuName;
+        myobj.index    = menuList[i].index;
+        var myTabs = menuList[i].tab.filter(function(item){
+            return !menuExclude.tabs.includes(item.url);
+        });
+        myTabs = myTabs.filter(function(item){
+            if (item.tabName == '__INHERIT__' && item.url == 'NULL') {
+                return false;
+            } else {
+                return true;
+            }
+        });
+        myTabs = myTabs.filter(function(item){
+            return item.tabName !== '__HIDE__';
+        });
+        myobj.tabs = myTabs;
+        myMenu.push(myobj);
+    }
+    myMenu = myMenu.filter(function(item) {
+        return !menuExclude.menus.includes(item.index);
+    });
+    myMenu = myMenu.filter(function(item) {
+        return item.index != 'menu_Split';
+    });
+    var sitemapstring = '';
+    for (var i = 0; i < myMenu.length; i++) {
+        sitemapstring +=
+            '<span style="font-size:14px;background-color:#4D595D;">' +
+            '<b>' + myMenu[i].menuName + '</b></span><br>';
+        for (var i2 = 0; i2 < myMenu[i].tabs.length; i2++) {
+            var tab = myMenu[i].tabs[i2];
+            var tabname = (tab.tabName == '__INHERIT__')
+                        ? tab.url.split('.')[0]
+                        : tab.tabName;
+            var taburl  = (tab.url.indexOf('redirect.htm') != -1)
+                        ? '/ext/shared-jy/redirect.htm'
+                        : tab.url;
+            if (showurls) {
+                sitemapstring +=
+                    '<a style="text-decoration:underline;background-color:#4D595D;" ' +
+                    'href="' + taburl + '" target="_blank">' + tabname +
+                    '</a> - ' + taburl + '<br>';
+            } else {
+                sitemapstring +=
+                    '<a style="text-decoration:underline;background-color:#4D595D;" ' +
+                    'href="' + taburl + '" target="_blank">' + tabname +
+                    '</a><br>';
+            }
+        }
+        sitemapstring += '<br>';
+    }
+    return sitemapstring;
+}
+(function(){
+  if (window._stateEnhancedInjected) return;
+  window._stateEnhancedInjected = true;
+  const CACHE_KEY = 'stateEnhanced_menuListCache';
+  function readCache(){
+    try {
+      return JSON.parse(localStorage.getItem(CACHE_KEY)) || {};
+    } catch {
+      return {};
+    }
+  }
+  function writeCache(list, exclude){
+    localStorage.setItem(CACHE_KEY,
+      JSON.stringify({ menuList: list, menuExclude: exclude })
+    );
+  }
+  (function watchForSetup(){
+    if (location.pathname.endsWith('index.asp')) {
+      if (!window.menuList || !window.menuExclude) {
+        const { menuList, menuExclude } = readCache();
+        if (menuList && menuExclude) {
+          window.menuList    = menuList;
+          window.menuExclude = menuExclude;
+        } else {
+          return setTimeout(watchForSetup, 200);
+        }
+      }
+      window.addEventListener('load', () => {
+        buildMyMenu();
+        injectDropdowns();
+      });
+      return;
+    }
+    if (
+      Array.isArray(window.menuList) && window.menuList.length &&
+      window.menuExclude &&
+      Array.isArray(window.menuExclude.tabs) &&
+      Array.isArray(window.menuExclude.menus)
+    ) {
+      if (!readCache().menuList) {
+        writeCache(window.menuList, window.menuExclude);
+      }
+      buildMyMenu();
+      injectDropdowns();
+    } else {
+      setTimeout(watchForSetup, 200);
+    }
+  })();
+  function buildMyMenu(){
+    if (window.myMenu && window.myMenu.length) return;
+    const cache   = readCache();
+    const exclude = (window.menuExclude && Array.isArray(window.menuExclude.tabs))
+                    ? window.menuExclude
+                    : (cache.menuExclude || { tabs: [], menus: [] });
+    const hidden  = new Set([...(exclude.menus||[]), 'menu_Split']);
+    const src     = Array.isArray(window.menuList) && window.menuList.length
+                    ? window.menuList
+                    : (cache.menuList || []);
+    window.myMenu = src
+      .filter(m => !hidden.has(m.index))
+      .map(m => ({
+        menuName: m.menuName,
+        index:    m.index,
+        tabs:     (m.tab||[])
+                    .filter(t => !exclude.tabs.includes(t.url))
+                    .filter(t => !(t.tabName==='__INHERIT__' && t.url==='NULL'))
+                    .filter(t => !(t.tabName==='__HIDE__'   && t.url==='NULL'))
+                    .filter(t => t.tabName!=='__HIDE__')
+      }))
+      .filter(m => m.tabs.length > 0);
+  }
+  function injectDropdowns(){
+    if (!Array.isArray(window.myMenu)) return;
+    window.myMenu.forEach(menu => {
+      let icon = document.getElementsByClassName(menu.index)[0];
+      if (!icon) {
+        const id = menu.index.replace(/^menu_/, '') + '_menu';
+        icon = document.getElementById(id);
+      }
+      if (!icon || icon._injected) return;
+      icon._injected = true;
+      let html = '<div class="dropdown-content">';
+      menu.tabs.forEach(t => {
+        const name = (t.tabName==='__INHERIT__') ? t.url.split('.')[0] : t.tabName;
+        const url  = t.url.includes('redirect.htm')
+                   ? '/ext/shared-jy/redirect.htm'
+                   : t.url;
+        html += `<a href="${url}" target="_self">${name}</a>`;
+      });
+      html += '</div>';
+      const container = icon.closest('.menu') || icon.parentElement;
+      container.classList.add('dropdown');
+      container.insertAdjacentHTML('beforeend', html);
+      const dd = container.querySelector('.dropdown-content');
+      icon.addEventListener('click', e => {
+        e.stopPropagation();
+        dd.style.display = (dd.style.display==='block') ? 'none' : 'block';
+      });
+      dd.addEventListener('click', e => e.stopPropagation());
+    });
+  }
+  function rehookShowMenu(){
+    if (typeof show_menu !== 'function') return;
+    const orig = show_menu;
+    show_menu = function(...args){
+      orig.apply(this, args);
+      buildMyMenu();
+      injectDropdowns();
+    };
+  }
+  function init(){
+    rehookShowMenu();
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.dropdown-content')
+              .forEach(el => { if (el.style.display==='block') el.style.display = 'none'; });
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+  window.addEventListener('load', ()=>{
+    buildMyMenu();
+    injectDropdowns();
+  });
+})();
+EOF
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-May-13] ##
+##---------------------------------------##
+Upgrade_StateJS() {
+    STATE_JS="/tmp/state.js"
+    [ -f "$STATE_JS" ] || return 0
+
+    if grep -q "var myMenu = \[\];" "$STATE_JS"; then
+        umount /www/state.js 2>/dev/null
+
+        # 2) remove old snippet into a temp file
+        TMP="/tmp/state-tmp.js"
+        sed '/^var myMenu = \[\];$/,/^GenerateSiteMap(false); AddDropdowns();$/d' "$STATE_JS" > "$TMP"
+
+        # 3) overwrite state.js with the stripped version
+        mv "$TMP" "$STATE_JS"
+
+        # append the shared snippet
+        append_statejs_snippet >> "$STATE_JS"
+
+        mount -o bind /tmp/state.js /www/state.js
+    fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-13] ##
+##------------------------------------------##
 Update_Version()
 {
 	if [ $# -eq 0 ] || [ -z "$1" ]
@@ -460,6 +680,7 @@ Update_Version()
 				y|Y)
 					printf "\n"
 					Update_File shared-jy.tar.gz
+					Upgrade_StateJS
 					Update_File scmerlin_www.asp
 					Update_File sitemap.asp
 					Update_File tailtop
@@ -496,6 +717,7 @@ Update_Version()
 		serverver="$(curl -fsL --retry 4 --retry-delay 5 "$SCRIPT_REPO/$SCRIPT_NAME_LOWER.sh" | grep "SCRIPT_VERSION=" | grep -m1 -oE "$scriptVersRegExp")"
 		Print_Output true "Downloading latest version ($serverver) of $SCRIPT_NAME" "$PASS"
 		Update_File shared-jy.tar.gz
+		Upgrade_StateJS
 		Update_File scmerlin_www.asp
 		Update_File sitemap.asp
 		Update_File tailtop
@@ -926,9 +1148,9 @@ ${ENDIN_MenuAddOnsTag}" "$TEMP_MENU_TREE"
 }
 
 ### locking mechanism code credit to Martineau (@MartineauUK) ###
-##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-16] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-13] ##
+##------------------------------------------##
 Mount_WebUI()
 {
 	realpage=""
@@ -1005,124 +1227,9 @@ Mount_WebUI()
 			cp -f /www/state.js /tmp/
 			sed -i 's~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\">~<td width=\\"335\\" id=\\"bottom_help_link\\" align=\\"left\\"><a style=\\"font-weight: bolder;text-decoration:underline;cursor:pointer;\\" href=\\"\/'"$MyWebPage"'\\" target=\\"_blank\\">Sitemap<\/a>\&nbsp\|\&nbsp~' /tmp/state.js
 
-			cat << 'EOF' >> /tmp/state.js
-var myMenu = [];
-function AddDropdowns(){
-	if(myMenu.length == 0){
-		setTimeout(AddDropdowns,1000);
-		return;
-	}
-	for(var i = 0; i < myMenu.length; i++){
-		var sitemapstring = '<div class="dropdown-content">';
-		for(var i2 = 0; i2 < myMenu[i].tabs.length; i2++){
-			if(myMenu[i].tabs[i2].tabName == '__HIDE__'){
-				continue;
-			}
-		var tabname = myMenu[i].tabs[i2].tabName;
-		var taburl = myMenu[i].tabs[i2].url;
-		if(tabname == '__INHERIT__'){
-			tabname = taburl.split('.')[0];
-		}
-		if(taburl.indexOf('redirect.htm') != -1){
-			taburl = '/ext/shared-jy/redirect.htm';
-		}
-		sitemapstring += '<a href="'+taburl+'">'+tabname+'</a>';
-		}
-		document.getElementsByClassName(myMenu[i].index)[0].parentElement.parentElement.parentElement.parentElement.parentElement.innerHTML += sitemapstring;
-		document.getElementsByClassName(myMenu[i].index)[0].parentElement.parentElement.parentElement.parentElement.parentElement.classList.add('dropdown');
-	}
-}
+			# append the same shared snippet
+			append_statejs_snippet >> /tmp/state.js
 
-function GenerateSiteMap(showurls){
-	myMenu = [];
-
-	if(typeof menuList == 'undefined' || menuList == null){
-		setTimeout(GenerateSiteMap,1000,false);
-		return;
-	}
-
-	for(var i = 0; i < menuList.length; i++){
-		var myobj = {};
-		myobj.menuName = menuList[i].menuName;
-		myobj.index = menuList[i].index;
-
-		var myTabs = menuList[i].tab.filter(function(item){
-			return !menuExclude.tabs.includes(item.url);
-		});
-		myTabs = myTabs.filter(function(item){
-			if(item.tabName == '__INHERIT__' && item.url == 'NULL'){
-				return false;
-			}
-			else{
-				return true;
-			}
-		});
-		myTabs = myTabs.filter(function(item){
-			if(item.tabName == '__HIDE__' && item.url == 'NULL'){
-				return false;
-			}
-			else{
-				return true;
-			}
-		});
-		myTabs = myTabs.filter(function(item){
-			return item.url.indexOf('TrafficMonitor_dev') == -1;
-		});
-		myTabs = myTabs.filter(function(item){
-			return item.url != 'AdaptiveQoS_Adaptive.asp';
-		});
-		myobj.tabs = myTabs;
-
-		myMenu.push(myobj);
-	}
-
-	myMenu = myMenu.filter(function(item) {
-		return !menuExclude.menus.includes(item.index);
-	});
-	myMenu = myMenu.filter(function(item) {
-		return item.index != 'menu_Split';
-	});
-
-	var sitemapstring = '';
-
-	for(var i = 0; i < myMenu.length; i++){
-		if(myMenu[i].tabs[0].tabName == '__HIDE__' && myMenu[i].tabs[0].url != 'NULL'){
-			if(showurls == true){
-				sitemapstring += '<span style="font-size:14px;background-color:#4D595D;"><b><a style="color:#FFCC00;background-color:#4D595D;" href="'+myMenu[i].tabs[0].url+'" target="_blank">'+myMenu[i].menuName+'</a> - '+myMenu[i].tabs[0].url+'</b></span><br>';
-			}
-			else{
-				sitemapstring += '<span style="font-size:14px;background-color:#4D595D;"><b><a style="color:#FFCC00;background-color:#4D595D;" href="'+myMenu[i].tabs[0].url+'" target="_blank">'+myMenu[i].menuName+'</a></b></span><br>';
-			}
-		}
-		else{
-			sitemapstring += '<span style="font-size:14px;background-color:#4D595D;"><b>'+myMenu[i].menuName+'</b></span><br>';
-		}
-		for(var i2 = 0; i2 < myMenu[i].tabs.length; i2++){
-			if(myMenu[i].tabs[i2].tabName == '__HIDE__'){
-				continue;
-			}
-			var tabname = myMenu[i].tabs[i2].tabName;
-			var taburl = myMenu[i].tabs[i2].url;
-			if(tabname == '__INHERIT__'){
-				tabname = taburl.split('.')[0];
-			}
-			if(taburl.indexOf('redirect.htm') != -1){
-				taburl = '/ext/shared-jy/redirect.htm';
-			}
-			if(showurls == true){
-				sitemapstring += '<a style="text-decoration:underline;background-color:#4D595D;" href="'+taburl+'" target="_blank">'+tabname+'</a> - '+taburl+'<br>';
-			}
-			else{
-				sitemapstring += '<a style="text-decoration:underline;background-color:#4D595D;" href="'+taburl+'" target="_blank">'+tabname+'</a><br>';
-			}
-		}
-		sitemapstring += '<br>';
-	}
-	return sitemapstring;
-}
-GenerateSiteMap(false);
-AddDropdowns();
-EOF
 			mount -o bind /tmp/state.js /www/state.js
 
 			Print_Output true "Mounted Sitemap page as $MyWebPage" "$PASS"
@@ -2452,6 +2559,7 @@ if [ $# -eq 0 ] || [ -z "$1" ]
 then
 	isInteractiveMenuMode=true
 	Create_Dirs
+	Upgrade_StateJS
 	Create_Symlinks
 	NTP_Ready
 	Shortcut_Script create
