@@ -1,12 +1,25 @@
-on: push
+name: ShellCheck on Develop→Master PR
 
-name: 'ShellCheck'
+on:
+  pull_request:
+    branches:
+      - master
+    types:
+      - opened
+      - reopened
+      - synchronize
 
 jobs:
   shellcheck:
-    name: Shellcheck
+    if: github.event.pull_request.head.ref == 'develop'
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v2
-    - name: Run ShellCheck
-      uses: ludeeus/action-shellcheck@master
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          # check out the PR’s head (the develop branch)
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
