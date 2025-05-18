@@ -8,11 +8,14 @@
 ##   \__ \| (__ | |  | ||  __/| |   | || || | | |   ##
 ##   |___/ \___||_|  |_| \___||_|   |_||_||_| |_|   ##
 ##                                                  ##
-##       https://github.com/jackyaz/scMerlin        ##
+##      https://github.com/AMTM-OSR/scMerlin        ##
+## Forked from: https://github.com/jackyaz/scMerlin ##
 ##                                                  ##
 ######################################################
 # Last Modified: 2025-May-18
 #-----------------------------------------------------
+## Modification by thelonelycoder [2025-May-18] ##
+# Changed repo paths to OSR, added OSR repo to headers, increased version. 
 
 ##########       Shellcheck directives     ###########
 # shellcheck disable=SC2016
@@ -35,7 +38,7 @@ readonly SCRIPT_DIR="/jffs/addons/$SCRIPT_NAME_LOWER.d"
 readonly SCRIPT_WEBPAGE_DIR="$(readlink -f /www/user)"
 readonly SCRIPT_WEB_DIR="$SCRIPT_WEBPAGE_DIR/$SCRIPT_NAME_LOWER"
 readonly SHARED_DIR="/jffs/addons/shared-jy"
-readonly SHARED_REPO="https://raw.githubusercontent.com/decoderman/shared-jy/master"
+readonly SHARED_REPO="https://raw.githubusercontent.com/AMTM-OSR/shared-jy/master"
 readonly SHARED_WEB_DIR="$SCRIPT_WEBPAGE_DIR/shared-jy"
 readonly TEMP_MENU_TREE="/tmp/menuTree.js"
 readonly NTP_WATCHDOG_FILE="$SCRIPT_DIR/.watchdogenabled"
@@ -1818,7 +1821,8 @@ ScriptHeader()
 	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##              %9s on %-18s     ##${CLEARFORMAT}\n" "$SCRIPT_VERSION" "$ROUTER_MODEL"
 	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
-	printf "${BOLD}##       https://github.com/jackyaz/scMerlin        ##${CLEARFORMAT}\\n"
+	printf "${BOLD}##       https://github.com/AMTM-OSR/scMerlin       ##${CLEARFORMAT}\\n"
+	printf "${BOLD}## Forked from: https://github.com/jackyaz/scMerlin ##${CLEARFORMAT}\\n"
 	printf "${BOLD}##                                                  ##${CLEARFORMAT}\\n"
 	printf "${BOLD}######################################################${CLEARFORMAT}\\n"
 	printf "\n"
@@ -2710,7 +2714,7 @@ Help & Support
   https://www.snbforums.com/forums/asuswrt-merlin-addons.60/?prefix_id=23
 
 Source code
-  https://github.com/jackyaz/$SCRIPT_NAME
+  https://github.com/AMTM-OSR/$SCRIPT_NAME
 EOF
 	printf "\n"
 }
